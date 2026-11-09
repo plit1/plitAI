@@ -16,7 +16,7 @@ const browser = await chromium.launch();
 const pages = [];
 const newPage = async (opts) => { const p = await (await browser.newContext(opts)).newPage(); pages.push(p); p.on('pageerror', (e) => { console.error('PAGE ERROR', e.message); process.exitCode = 1; }); p.on('dialog', (d) => d.accept(p.__answer ?? undefined)); return p; };
 async function signup(page, email, nick) {
-  await page.goto(`${WEB}/signup`);
+  await page.goto(`${WEB}/signup`); await page.waitForLoadState('networkidle');
   await page.getByLabel('이메일').fill(email); await page.getByLabel(/비밀번호/).fill('abcd1234'); await page.getByLabel(/닉네임/).fill(nick);
   await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL((u) => u.pathname === '/finder');
 }

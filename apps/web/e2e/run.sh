@@ -7,7 +7,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 PG="${PG_ADMIN_URL:-postgresql://plit:plit@localhost:5432/postgres}"
 LOG="${E2E_LOG_DIR:-/tmp}"
-if [ $# -gt 0 ]; then FLOWS=("$@"); else FLOWS=(core-flow phase3-flow phase4-flow phase5-flow phase6-flow); fi
+if [ $# -gt 0 ]; then FLOWS=("$@"); else FLOWS=(core-flow phase3-flow phase4-flow phase5-flow phase6-flow phase7-flow); fi
 STAMP="$(date +%Y%m%d%H%M%S)"
 (cd "$ROOT/apps/api" && npx nest build >/dev/null)
 # 서버는 표준 입출력을 모두 파일로 돌려 완전히 분리 (파이프를 붙잡아 실행기가 끝나지 않는 문제 방지)

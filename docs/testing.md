@@ -5,8 +5,15 @@
 |---|---|---|
 | API 단위 + 통합(E2E) | `cd apps/api && pnpm test` | 실제 PostgreSQL `plit_test` (이름에 test 없으면 실행 거부) |
 | 웹 타입체크·빌드 | `pnpm --filter @plit/web typecheck && pnpm --filter @plit/web build` | |
-| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow phase5-flow phase6-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
+| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow phase5-flow phase6-flow phase7-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
 | CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
+
+## 세션 6 실행 결과 (Phase 7)
+- API: **40 suites / 242 tests 통과** (세션 5 대비 +28) — 시드 범위 3, 초대 규칙 5·e2e 6(랜딩·귀속·승인·중복 의심 해제·자동 거절·월 한도·정지 계정·알림센터), 포인트몰 e2e 5(부족·멱등·동시 5건→1건·하루 한도·재고 동시성·발급 실패 역분개·관리자 취소·대기 복구), 광고 규칙 4·e2e 5(피드 순서·이벤트 중복 제거·신청·중복 승인 불가·단가 스냅샷·승인 취소·심사·연락처 수집 차단·암호화·마스킹)
+- 스테이징 시드: 빈 DB 에 `NODE_ENV=staging node dist/seed/seed.js` → 자격증 50·공고 24·지원사업 13, 회원 0 확인
+- 브라우저 `phase7-flow`: 초대 링크 → 랜딩 → 코드 자동 입력 가입 → 첫 학습 → 관리자 중복 의심 해제 승인(4,500P) → 알림 → 포인트몰 교환·테스트 쿠폰·코드 보기 → 관리자 취소·복구 → 자격증 찾기 5번째 칸 광고 → 노출·클릭·폼 시작·신청 → 유효 승인 매출 30,000원 → 모바일 **통과**
+- 6개 흐름 전체 재실행 **모두 통과**
+- 발견·수정 결함: (1) 스테이징 컨테이너에서 시드를 실행할 수 없던 문제(시드가 dist 밖·ts-node 없음) (2) 이전 흐름들의 가입 헬퍼가 화면 준비 전에 입력하는 간헐 실패 → 네트워크 대기 추가
 
 ## 세션 5 실행 결과 (Phase 6)
 - API: **34 suites / 214 tests 통과** (세션 4 대비 +35) — 게이미피케이션 규칙·e2e(입양·진화·마스터 잠금·코스튬 권한·주간 WIN 멱등), 경쟁 규칙·11명 WIN/LOSE e2e, 취업 규칙·e2e(검색·자격증 상태·맞춤·관심·관리자·감사), 창업 규칙 6·e2e 5(필터·추천 업종·맞춤 점수·로드맵·관리자 맵·감사)

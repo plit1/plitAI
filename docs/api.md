@@ -141,3 +141,34 @@
 | PATCH | /admin/startup/programs/:id `{status ACTIVE/HIDDEN}` | OPERATOR | 감사 로그 |
 | GET | /admin/startup/providers | OPERATOR | K-Startup·기업마당 상태 |
 | GET/PUT | /admin/startup/industry-map[/:certId] `{industry|null, reason?}` | OPERATOR | 자격증 → 업종 |
+
+## Phase 7 추가 (세션 6)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| GET | /me/notifications?cursor | 회원 | 알림 목록·미읽음 수 |
+| GET | /me/notifications/unread | 회원 | 미읽음 수 |
+| PUT | /me/notifications/:id/read | 본인 | 타인 알림 404 |
+| POST | /me/notifications/read-all | 회원 | |
+| POST | /admin/notifications/run-daily | SUPER_ADMIN | 만료 예정·마감 임박 알림 배치 (6시간 주기 자동) |
+| POST | /auth/signup `{…, referralCode?, inviteOfferingId?}` | 공개 | 추천 귀속 (정지 계정 코드는 무시) |
+| GET | /referral/:code | 공개 | `{valid, code, inviter(마스킹), welcomePoints}` |
+| GET | /me/referral | 회원 | 코드·링크·자격·정책·월 사용량·현황·친구(익명) |
+| GET | /admin/referral/rewards?status | OPERATOR | 보상 대기·지급·거절 (중복 의심 표시) |
+| POST | /admin/referral/rewards/:id/approve `{overrideDup?, note?}` | OPERATOR | 재검증 실패 시 자동 REJECTED, 중복 의심 409 DUP_SUSPECT |
+| POST | /admin/referral/rewards/:id/reject `{reason}` | OPERATOR | |
+| GET | /mall/products?category | 공개 | 상품·카테고리·시범 운영 고지 |
+| POST | /mall/exchange `{productId, idempotencyKey}` | 회원 | 422 INSUFFICIENT_POINTS / 429 DAILY_LIMIT·PRODUCT_DAILY_LIMIT / 409 SOLD_OUT / 502 ISSUE_FAILED(복구됨) / 503 SUPPLIER_NOT_CONFIGURED / 403 REWARDS_NOT_LIVE |
+| GET | /me/mall/orders, /me/mall/orders/:id | 본인 | 상세에서만 쿠폰 코드 |
+| GET | /admin/mall/products, /admin/mall/suppliers, /admin/mall/orders | OPERATOR | |
+| PUT | /admin/mall/products | SUPER_ADMIN | 상품 등록·수정 (감사) |
+| POST | /admin/mall/orders/:id/cancel `{reason}` | OPERATOR | 포인트 역분개·재고 복구·알림 |
+| POST | /admin/mall/recover | SUPER_ADMIN | 발급 대기 10분 초과 정리 (15분 주기 자동) |
+| GET | /ads/feed?field | 공개 | `{every:4, campaigns}` |
+| GET | /ads/:id | 공개 | 활성 광고만 |
+| POST | /ads/events `{campaignId, eventType IMPRESSION/CLICK/FORM_START, sessionId, placement}` | 공개 (분당 120) | 노출·폼 시작 세션·위치당 1회 |
+| POST | /ads/:id/leads `{answers:{topic,certId?}, name?, phone?, consentPrivacy, consentThirdParty, sessionId, placement}` | 회원 (분당 10) | 예시 광고 연락처 400 CONTACT_NOT_ALLOWED, 수집 광고 403 CONTACT_COLLECTION_DISABLED(승인 전) |
+| GET/POST | /admin/ads/campaigns | OPERATOR | 지표 포함 목록 / 등록(심사 대기) |
+| PATCH | /admin/ads/campaigns/:id/status `{status, note?}` | OPERATOR | 심사·중지·재개·종료 |
+| PATCH | /admin/ads/campaigns/:id/price `{cpaPrice}` | SUPER_ADMIN | 이후 승인분부터 |
+| GET | /admin/ads/leads?campaignId&status | OPERATOR | 연락처는 마스킹만 |
+| POST | /admin/ads/leads/:id/decide `{action APPROVE/REJECT/REVERSE, note?}` | OPERATOR | 중복 승인 409 DUPLICATE_LEAD |

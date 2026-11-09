@@ -21,7 +21,7 @@ const pages = [];
 const newPage = async (opts) => { const ctx = await browser.newContext({ acceptDownloads: true, ...opts }); const p = await ctx.newPage(); pages.push(p); p.on('pageerror', (e) => { console.error('PAGE ERROR', e.message); process.exitCode = 1; }); p.on('dialog', (d) => d.accept()); return p; };
 try {
   const u = await newPage();
-  await u.goto(`${WEB}/signup`);
+  await u.goto(`${WEB}/signup`); await u.waitForLoadState('networkidle');
   await u.getByLabel('이메일').fill(`p5${stamp}@test.plit`); await u.getByLabel(/비밀번호/).fill('abcd1234'); await u.getByLabel(/닉네임/).fill('결제5');
   await u.getByLabel('전체 동의').check(); await u.getByRole('button', { name: '가입하기' }).click(); await u.waitForURL((u) => u.pathname === '/finder');
   const userId = sql(`SELECT id FROM "User" WHERE email='p5${stamp}@test.plit'`);

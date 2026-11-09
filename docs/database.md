@@ -60,5 +60,11 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - 시드: 데모 공고 24·지원사업 13 (NODE_ENV≠production 이고 SEED_DEMO_CONTENT≠false 일 때만)
 - 마이그레이션 `20261109143847_phase6_gamification_jobs_startup`
 
-## 이후 추가 예정 테이블 (Phase 7)
-Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, Notification
+## Phase 7 추가
+- `Notification`(userId, type, title, body, link, dedupeKey UNIQUE, readAt)
+- `ReferralAttribution`(refereeId PK — 최초 귀속만, referrerId, code, offeringId, ipHash/uaHash(HMAC), dupSuspect, dupReason) · `ReferralReward`(refereeId+rewardType UNIQUE, amount 스냅샷, status PENDING/REWARDED/REJECTED, checks JSON, ledgerEntryId)
+- `MallProduct`(stock null=무제한, perUserDaily, supplier, isDemo) · `MallOrder`(userId+idempotencyKey UNIQUE, status PENDING/ISSUED/FAILED/CANCELLED, couponCodeEnc AES-GCM, couponLast4, ledgerEntryId)
+- `AdCampaign`(status PENDING_REVIEW/ACTIVE/PAUSED/REJECTED/ENDED, cpaPrice, targetFields, topics, collectsContact, isDemo) · `AdEvent`(dedupeKey UNIQUE: 노출·폼 시작) · `AdLead`(answers, nameEnc/phoneEnc, phoneLast4, duplicateOfId, priceSnapshot) · `AdRevenueEntry`(CREDIT/REVERSAL, dedupeKey UNIQUE)
+- 정책값 추가: `referralMonthlyCount`(20), `referralMonthlyPoints`(20000), `mallDailyOrders`(5)
+- 시드: 포인트몰 예시 상품 10, 예시 광고 3 (데모 콘텐츠 범위)
+- 마이그레이션 `20261109152217_phase7_referral_mall_ads_notifications` (테이블 추가만)

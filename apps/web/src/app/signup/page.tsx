@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
@@ -17,6 +17,12 @@ export default function Signup() {
   const router = useRouter();
   const { setSession } = useAuth();
   const [form, setForm] = useState({ email: '', password: '', nickname: '', referralCode: '' });
+  const [inviteOfferingId, setInviteOfferingId] = useState<string | undefined>();
+  useEffect(() => { // 초대 링크(/invite/CODE → /signup?ref=CODE&challengeId=…)에서 온 경우 코드 미리 채움
+    const q = new URLSearchParams(window.location.search);
+    const ref = q.get('ref'); if (ref) setForm((f) => ({ ...f, referralCode: ref.toUpperCase() }));
+    setInviteOfferingId(q.get('challengeId') ?? undefined);
+  }, []);
   const [agreed, setAgreed] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const requiredOk = CONSENTS.filter((c) => c.required).every((c) => agreed[c.id]);
@@ -25,7 +31,7 @@ export default function Signup() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setError(null);
     try {
-      const r = await api<{ accessToken: string }>('/auth/signup', { method: 'POST', json: { ...form, referralCode: form.referralCode || undefined, consents: CONSENTS.filter((c) => agreed[c.id]).map((c) => c.id) } });
+      const r = await api<{ accessToken: string }>('/auth/signup', { method: 'POST', json: { ...form, referralCode: form.referralCode || undefined, inviteOfferingId: form.referralCode ? inviteOfferingId : undefined, consents: CONSENTS.filter((c) => agreed[c.id]).map((c) => c.id) } });
       await setSession(r.accessToken);
       router.push('/finder');
     } catch (err) { setError(err instanceof ApiError ? err.message : '가입하지 못했어요.'); } finally { setBusy(false); }

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { useApi } from '@/lib/use-api';
+import { AdCampaign, AdCard, withAds } from '@/components/ads';
 import { api, dday } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { Badge, ErrorBox, FIELD_LABEL, Spinner } from '@/components/ui';
@@ -18,6 +19,7 @@ function Finder() {
   const [applied, setApplied] = useState(initial);
   const params = new URLSearchParams(Object.entries({ q: applied, field, group }).filter(([, v]) => v)).toString();
   const { data, error, loading, reload } = useApi<{ items: Cert[]; total: number }>(`/certifications${params ? `?${params}` : ''}`);
+  const ads = useApi<{ every: number; campaigns: AdCampaign[] }>('/ads/feed');
   const { me } = useAuth();
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const toggle = async (id: string) => {
@@ -49,7 +51,7 @@ function Finder() {
         <p className="card p-8 text-center text-sm text-ink-mute">조건에 맞는 자격증이 없어요.</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2" aria-label={`검색 결과 ${data!.total}개`}>
-          {data!.items.map((c) => (
+          {withAds(data!.items, ads.data?.campaigns ?? [], ads.data?.every ?? 4).map((row) => row.kind === 'ad' ? <AdCard key={`ad-${row.placement}`} c={row.c} placement={row.placement} /> : ((c) => (
             <li key={c.id} className="card p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -67,7 +69,7 @@ function Finder() {
                 </Link>
               ) : <p className="mt-3 text-xs text-ink-mute">예정된 챌린지가 없어요</p>}
             </li>
-          ))}
+          ))(row.item))}
         </ul>
       )}
     </div>

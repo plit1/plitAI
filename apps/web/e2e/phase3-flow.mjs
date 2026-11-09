@@ -12,7 +12,7 @@ mkdirSync(OUT, { recursive: true });
 const step = (n, m) => console.log(`✓ [${n}] ${m}`);
 const login = (page, email, password, next) => loginAt(page, WEB, email, password, next);
 async function signup(page, email, nick) {
-  await page.goto(`${WEB}/signup`);
+  await page.goto(`${WEB}/signup`); await page.waitForLoadState('networkidle');
   await page.getByLabel('이메일').fill(email); await page.getByLabel(/비밀번호/).fill('abcd1234'); await page.getByLabel(/닉네임/).fill(nick);
   await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL((u) => u.pathname === '/finder');
 }

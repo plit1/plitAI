@@ -1,7 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
-import { pts } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { api, pts } from '@/lib/api';
+import { onUnreadChanged } from '@/lib/notify';
 
 export function Header() {
   const { me, ready, logout } = useAuth();
@@ -13,11 +16,13 @@ export function Header() {
         <Link href="/community" className="text-sm font-semibold text-ink-soft hover:text-ink">커뮤니티</Link>
         <Link href="/jobs" className="text-sm font-semibold text-ink-soft hover:text-ink">취업</Link>
         <Link href="/startup" className="text-sm font-semibold text-ink-soft hover:text-ink">창업</Link>
+        <Link href="/mall" className="text-sm font-semibold text-ink-soft hover:text-ink">포인트몰</Link>
         <Link href="/open-run" className="hidden text-sm font-semibold text-ink-soft hover:text-ink sm:inline">오픈런</Link>
         <Link href="/my" className="text-sm font-semibold text-ink-soft hover:text-ink">내 챌린지</Link>
         <div className="ml-auto flex items-center gap-2 text-sm">
           {!ready ? null : me ? (
             <>
+              <Bell />
               <Link href="/my/points" className="rounded-full bg-clear-tint px-3 py-1 font-semibold text-clear-deep">{pts(me.points)}</Link>
               {me.role !== 'USER' && <Link href="/admin" className="font-semibold text-gold">관리자</Link>}
               <button onClick={logout} className="text-ink-mute hover:text-ink">로그아웃</button>
@@ -31,6 +36,21 @@ export function Header() {
         </div>
       </nav>
     </header>
+  );
+}
+
+/** 알림 아이콘 + 미읽음 수 (화면 이동·읽음 처리 시 갱신) */
+function Bell() {
+  const [n, setN] = useState(0); const path = usePathname();
+  useEffect(() => {
+    const load = () => { api<{ unread: number }>('/me/notifications/unread').then((r) => setN(r.unread)).catch(() => undefined); };
+    load(); return onUnreadChanged(load);
+  }, [path]);
+  return (
+    <Link href="/notifications" aria-label={`알림${n ? ` ${n}개 읽지 않음` : ''}`} className="relative text-ink-soft hover:text-ink">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+      {n > 0 && <span className="absolute -right-2 -top-1 rounded-full bg-risk px-1 text-[10px] font-bold text-white" data-testid="unread-count">{n > 99 ? '99+' : n}</span>}
+    </Link>
   );
 }
 

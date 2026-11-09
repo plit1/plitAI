@@ -25,7 +25,7 @@ try {
   page.on('pageerror', (e) => { console.error('PAGE ERROR', e); process.exitCode = 1; });
 
   // 1. 회원가입
-  await page.goto(`${WEB}/signup`);
+  await page.goto(`${WEB}/signup`); await page.waitForLoadState('networkidle');
   await page.getByLabel('이메일').fill(email);
   await page.getByLabel(/비밀번호/).fill('abcd1234');
   await page.getByLabel(/닉네임/).fill('이투이');
