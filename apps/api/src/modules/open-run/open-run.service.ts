@@ -3,6 +3,7 @@ import { OpenRunStatus, Prisma } from '@prisma/client';
 import { AppError, Conflict, NotFound } from '../../common/errors';
 import { PrismaService, Tx } from '../../common/prisma.service';
 import { checkText, normalizeCertName } from '../../common/text-filter';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../admin/audit.service';
 import { PolicyService } from '../policy/policy.service';
 
@@ -12,7 +13,7 @@ export type OpenRunAction = 'APPROVE' | 'START_REVIEW' | 'REJECT' | 'OPEN';
 
 @Injectable()
 export class OpenRunService {
-  constructor(private readonly prisma: PrismaService, private readonly policy: PolicyService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly policy: PolicyService, private readonly audit: AuditService, private readonly notifications: NotificationsService) {}
 
   private view(r: Prisma.OpenRunRequestGetPayload<object>, interested?: boolean) {
     return {
@@ -137,8 +138,12 @@ export class OpenRunService {
       let after = await tx.openRunRequest.update({ where: { id }, data });
       if (action === 'APPROVE') after = await this.reconcile(tx, id);
       await this.audit.log(tx, { actorId: adminId, action: `OPEN_RUN_${action}`, targetType: 'OpenRunRequest', targetId: id, before: { status: r.status }, after: { status: after.status, note: opts.note, offeringId: opts.offeringId }, ip: opts.ip });
-      // 개설 알림 대상: notify=true 활성 관심자 (발송은 알림 모듈 — Phase 7)
-      const notifyCount = action === 'OPEN' ? await tx.openRunInterest.count({ where: { requestId: id, active: true, notify: true } }) : 0;
+      // 개설 알림: notify=true 활성 관심자에게 인앱 알림 (요청당 1회)
+      let notifyCount = 0;
+      if (action === 'OPEN') {
+        const targets = await tx.openRunInterest.findMany({ where: { requestId: id, active: true, notify: true }, select: { userId: true } });
+        notifyCount = await this.notifications.notifyMany(tx, targets.map((t) => ({ userId: t.userId, type: 'OPEN_RUN_OPENED', title: '요청한 챌린지가 열렸어요', body: `${after.title} 챌린지 모집이 시작됐어요.`, link: `/challenges/${opts.offeringId}`, dedupeKey: `open-run-opened:${id}:${t.userId}` })));
+      }
       return { ...this.view(after), notifyCount };
     });
   }

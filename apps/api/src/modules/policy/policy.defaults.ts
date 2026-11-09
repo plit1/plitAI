@@ -11,7 +11,10 @@ export interface PolicyValues {
   retryEnabled: boolean; // 재도전 보상 (기본 미적용)
   refundDays: number; // 결제 후 환불 가능 기간
   welcomePoints: number; // 가입 축하 포인트
-  referralReward: number; // 친구 초대 참여 확정 보상
+  referralReward: number; // 친구 초대 보상 (피추천인 첫 유효 학습 + 관리자 승인)
+  referralMonthlyCount: number; // 추천인 월 보상 건수 한도 (KST 월)
+  referralMonthlyPoints: number; // 추천인 월 보상 포인트 한도
+  mallDailyOrders: number; // 회원당 하루 포인트몰 교환 수
   freeCapDefault: number;
   premiumCapDefault: number;
   pointExpiryDays: number; // 적립 포인트 유효기간 (0 = 만료 없음)
@@ -35,6 +38,9 @@ export const DEFAULT_POLICY: PolicyValues = {
   refundDays: 7,
   welcomePoints: 3500,
   referralReward: 1000,
+  referralMonthlyCount: 20,
+  referralMonthlyPoints: 20000,
+  mallDailyOrders: 5,
   freeCapDefault: 300,
   premiumCapDefault: 300,
   pointExpiryDays: 365,

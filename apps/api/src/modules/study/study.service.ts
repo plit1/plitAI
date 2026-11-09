@@ -6,6 +6,7 @@ import { daysBetween, kstDate } from '../../common/time';
 import { challengeIndex, competitionView, INDEX_DEFAULTS, studyWindow } from '../analytics/challenge-index';
 import { EntitlementService } from '../challenges/entitlement.service';
 import { XpEvent, XpService } from '../gamification/xp.service';
+import { ReferralService } from '../referral/referral.service';
 
 export const STUDY_RULES = { minStudySec: 60, maxSessionMin: INDEX_DEFAULTS.maxSessionMin, maxDailyMin: INDEX_DEFAULTS.maxDailyMin };
 /** 데모 GX_POLICY.pet: 기본 10XP + 10분당 5XP, 최대 60XP */
@@ -16,7 +17,7 @@ type Mission = { id: string; title: string; minutes: number; done: boolean; prio
 
 @Injectable()
 export class StudyService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly xp: XpService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly xp: XpService, private readonly referral: ReferralService) {}
 
   private elapsed(s: StudySession, now = new Date()) {
     return s.elapsedSec + (s.status === 'RUNNING' && s.resumedAt ? Math.floor((now.getTime() - s.resumedAt.getTime()) / 1000) : 0);
@@ -100,6 +101,7 @@ export class StudyService {
       const events: XpEvent[] = xp > 0 ? [{ eventKey: `study:${s.id}`, sourceType: 'study', sourceId: s.id, deltaXp: xp }] : [];
       if (streakUp && updated.streak > 0 && updated.streak % 7 === 0) events.push({ eventKey: `streak7:${s.enrollmentId}:${updated.streak}`, sourceType: 'streak', sourceId: s.enrollmentId, deltaXp: 80 });
       const xpResult = await this.xp.award(tx, userId, events);
+      await this.referral.onValidStudy(tx, userId, s.enrollmentId, s.id); // 초대받은 회원의 첫 유효 학습 → 보상 승인 대기
       return { minutes, xp, missionCleared: cleared, streak: updated.streak, progress: updated.progress, levelUp: xpResult.levelAfter > xpResult.levelBefore ? xpResult.levelAfter : null };
     });
   }

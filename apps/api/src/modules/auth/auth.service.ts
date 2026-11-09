@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { AuthProvider, ConsentType, Prisma, User } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { ReferralService } from '../referral/referral.service';
 import { referralCode, randomToken, sha256 } from '../../common/crypto';
 import { AppError, Conflict } from '../../common/errors';
 import { PrismaService, Tx } from '../../common/prisma.service';
@@ -17,9 +18,9 @@ const DUMMY_HASH = bcrypt.hashSync('plit-dummy-password', BCRYPT_ROUNDS);
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService, private readonly points: PointsService, private readonly policy: PolicyService, private readonly mail: MailService) {}
+  constructor(private readonly prisma: PrismaService, private readonly points: PointsService, private readonly policy: PolicyService, private readonly mail: MailService, private readonly referral: ReferralService) {}
 
-  async signup(dto: SignupDto): Promise<User> {
+  async signup(dto: SignupDto, meta: { ip?: string; ua?: string } = {}): Promise<User> {
     const missing = REQUIRED_CONSENTS.filter((c) => !dto.consents.includes(c));
     if (missing.length) throw new AppError('CONSENT_REQUIRED', '필수 약관에 동의해주세요.', HttpStatus.BAD_REQUEST, { missing });
     const email = dto.email.trim().toLowerCase();
@@ -29,8 +30,10 @@ export class AuthService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const referrer = dto.referralCode ? await tx.user.findUnique({ where: { referralCode: dto.referralCode.toUpperCase() } }) : null;
-        const user = await this.createUser(tx, { email, passwordHash, nickname: dto.nickname.trim(), referredById: referrer?.id }, dto.consents);
+        const usable = referrer && referrer.status === 'ACTIVE' ? referrer : null;
+        const user = await this.createUser(tx, { email, passwordHash, nickname: dto.nickname.trim(), referredById: usable?.id }, dto.consents);
         await tx.authIdentity.create({ data: { userId: user.id, provider: 'EMAIL', providerUserId: email, email } });
+        if (usable) await this.referral.attribute(tx, user, usable, meta, dto.inviteOfferingId);
         return user;
       });
     } catch (e) {

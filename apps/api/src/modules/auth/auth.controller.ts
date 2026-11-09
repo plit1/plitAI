@@ -33,7 +33,8 @@ export class AuthController {
   @Public() @Throttle({ default: { limit: limit(5), ttl: 60_000 } })
   @Post('signup')
   async signup(@Body() dto: SignupDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const user = await this.auth.signup(dto);
+    const m = this.meta(req);
+    const user = await this.auth.signup(dto, { ip: m.ip, ua: typeof m.ua === 'string' ? m.ua : undefined });
     return this.respond(res, await this.tokens.issue(user, this.meta(req)), user);
   }
 

@@ -7,6 +7,7 @@ import { AuditService } from '../admin/audit.service';
 import { EntitlementService } from '../challenges/entitlement.service';
 import { PointsService } from '../points/points.service';
 import { XpService } from '../gamification/xp.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS_FIX' | 'FAIL' | 'REJECT';
 const LOCKED: VerificationStatus[] = ['REVIEWING', 'APPROVED', 'FAILED'];
@@ -20,7 +21,7 @@ export function maskExamNumber(raw: string) {
 
 @Injectable()
 export class VerificationsService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly points: PointsService, private readonly audit: AuditService, private readonly xp: XpService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly points: PointsService, private readonly audit: AuditService, private readonly xp: XpService, private readonly notifications: NotificationsService) {}
 
   /** 공식 개인 합격조회 API 가 확인되지 않아 자동 검증을 가정하지 않는다 → 증빙 + 관리자 심사 */
   async submit(userId: string, enrollmentId: string, input: { examNumber: string; evidenceKey: string; examRoundId?: string }) {
@@ -108,6 +109,11 @@ export class VerificationsService {
       } else if (decision === 'FAIL') {
         await this.points.post(tx, { userId: v.userId, type: 'RESULT', amount: 0, reason: `${label} 불합격 확인 · 합격 보상 0P`, dedupeKey: `fail:${e.id}`, refType: 'PassVerification', refId: v.id, createdById: adminId });
       }
+      const MSG: Record<string, [string, string]> = {
+        APPROVE: ['합격 인증이 승인됐어요', `${label} 합격 보상 ${reward.toLocaleString('ko-KR')}P가 적립됐어요.`],
+        NEEDS_FIX: ['합격 인증 보완이 필요해요', note ?? ''], FAIL: ['합격 인증 결과를 확인했어요', `${label} 결과가 반영됐어요.`], REJECT: ['합격 인증이 반려됐어요', note ?? ''],
+      };
+      await this.notifications.notify(tx, { userId: v.userId, type: 'VERIFICATION_DECIDED', title: MSG[decision][0], body: MSG[decision][1], link: `/verify/${e.id}`, dedupeKey: `verification:${v.id}:${decision}:${Date.now()}` });
       await this.audit.log(tx, { actorId: adminId, action: `VERIFICATION_${decision}`, targetType: 'PassVerification', targetId: v.id, before: { status: v.status }, after: { status: next, reward, note }, ip });
       return { id: v.id, status: next, reward };
     });

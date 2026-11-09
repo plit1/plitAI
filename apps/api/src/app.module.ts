@@ -30,6 +30,8 @@ import { XpModule } from './modules/gamification/xp.service';
 import { GamificationModule } from './modules/gamification/gamification.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { StartupModule } from './modules/startup/startup.module';
+import { NotificationsModule } from './modules/notifications/notifications.service';
+import { ReferralModule } from './modules/referral/referral.service';
 import { MyCertsModule } from './modules/jobs/my-certs.service';
 import { PointsModule } from './modules/points/points.module';
 import { PolicyModule } from './modules/policy/policy.module';
@@ -50,7 +52,7 @@ import { VerificationsModule } from './modules/verifications/verifications.modul
     }),
     JwtModule.registerAsync({ global: true, useFactory: () => ({ secret: process.env.JWT_ACCESS_SECRET, signOptions: { expiresIn: (process.env.JWT_ACCESS_TTL || '15m') as any } }) }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: limit(120) }]),
-    PrismaModule, StorageModule, AuditModule, XpModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
+    PrismaModule, StorageModule, AuditModule, XpModule, NotificationsModule, ReferralModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
     CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule, StrategyModule, CommunityModule, StudyRoomModule, SettlementModule, GamificationModule, MyCertsModule, JobsModule, StartupModule,
   ],
   controllers: [HealthController],

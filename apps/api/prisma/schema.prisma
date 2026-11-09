@@ -963,3 +963,207 @@ model SavedProgram {
 
   @@id([userId, programId])
 }
+
+// ───────── Phase 7: 알림 · 친구 초대 · 포인트몰 · 광고 ─────────
+
+/// 인앱 알림. dedupeKey 로 같은 사건은 1건만
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // REFERRAL_REWARDED | VERIFICATION_DECIDED | OPEN_RUN_OPENED | POINTS_EXPIRING | SAVED_JOB_CLOSING | SAVED_PROGRAM_CLOSING | MALL_ORDER
+  title     String
+  body      String
+  link      String?
+  dedupeKey String    @unique
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// 추천 귀속 (피추천인 1명당 1건 — 최초 귀속 후 변경 불가)
+model ReferralAttribution {
+  refereeId  String   @id
+  referrerId String
+  code       String
+  offeringId String? // 초대 링크에 담긴 챌린지
+  ipHash     String?
+  uaHash     String?
+  dupSuspect Boolean  @default(false)
+  dupReason  String?
+  createdAt  DateTime @default(now())
+
+  @@index([referrerId])
+  @@index([ipHash])
+}
+
+enum ReferralRewardStatus {
+  PENDING
+  REWARDED
+  REJECTED
+}
+
+/// 친구 초대 보상 (피추천인 평생 1회 — 첫 유효 학습 후 생성, 관리자 승인 시 지급)
+model ReferralReward {
+  id             String               @id @default(cuid())
+  referrerId     String
+  refereeId      String
+  rewardType     String               @default("REFERRAL_FIRST_STUDY")
+  enrollmentId   String
+  studySessionId String
+  amount         Int // 생성 시점 정책값 스냅샷
+  status         ReferralRewardStatus @default(PENDING)
+  reason         String?
+  checks         Json?
+  decidedById    String?
+  decidedAt      DateTime?
+  ledgerEntryId  String?
+  createdAt      DateTime             @default(now())
+
+  @@unique([refereeId, rewardType])
+  @@index([referrerId, status])
+  @@index([status, createdAt])
+}
+
+enum MallProductStatus {
+  ACTIVE
+  HIDDEN
+}
+
+model MallProduct {
+  id           String            @id
+  category     String // cvs | cafe | life | book
+  brand        String
+  name         String
+  price        Int // 포인트
+  stock        Int? // null = 공급사 재고 (무제한 취급)
+  perUserDaily Int               @default(3)
+  supplier     String            @default("TEST")
+  supplierSku  String?
+  status       MallProductStatus @default(ACTIVE)
+  isDemo       Boolean           @default(false)
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  orders       MallOrder[]
+}
+
+enum MallOrderStatus {
+  PENDING // 포인트 차감 완료, 공급사 발급 대기
+  ISSUED
+  FAILED // 발급 실패 → 포인트 역분개
+  CANCELLED // 취소 → 포인트 역분개
+}
+
+model MallOrder {
+  id             String          @id @default(cuid())
+  userId         String
+  productId      String
+  price          Int
+  status         MallOrderStatus @default(PENDING)
+  idempotencyKey String
+  supplier       String
+  supplierRef    String?
+  couponCodeEnc  String? // AES-GCM 암호문
+  couponLast4    String?
+  isTestCoupon   Boolean         @default(true)
+  couponExpires  DateTime?
+  ledgerEntryId  String?
+  failReason     String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  product        MallProduct     @relation(fields: [productId], references: [id])
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+enum AdCampaignStatus {
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  REJECTED
+  ENDED
+}
+
+model AdCampaign {
+  id              String           @id @default(cuid())
+  category        String // INSURANCE | ACADEMY | HR | ETC
+  advertiserName  String
+  title           String
+  description     String
+  detail          String[]
+  ctaText         String
+  cpaPrice        Int // 원 (유효 DB 1건)
+  targetFields    String[] // 자격증 분야 또는 ["all"]
+  topics          String[] // 상담 주제 선택지
+  collectsContact Boolean          @default(false) // 연락처 수집 여부 (데모 광고는 false)
+  status          AdCampaignStatus @default(PENDING_REVIEW)
+  reviewNote      String?
+  isDemo          Boolean          @default(false)
+  createdById     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  events          AdEvent[]
+  leads           AdLead[]
+}
+
+model AdEvent {
+  id         String     @id @default(cuid())
+  campaignId String
+  eventType  String // IMPRESSION | CLICK | FORM_START | SUBMIT
+  sessionId  String
+  placement  String
+  userId     String?
+  dedupeKey  String?    @unique // 노출·폼 시작: 캠페인+세션+위치당 1회
+  occurredAt DateTime   @default(now())
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, eventType, occurredAt])
+}
+
+enum AdLeadStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+model AdLead {
+  id             String       @id @default(cuid())
+  campaignId     String
+  userId         String
+  answers        Json // 상담 주제 등 선택값 (개인정보 아님)
+  nameEnc        String? // 연락처 수집 캠페인만 (AES-GCM)
+  phoneEnc       String?
+  phoneLast4     String?
+  consentVersion String
+  status         AdLeadStatus @default(PENDING)
+  duplicateOfId  String?
+  priceSnapshot  Int?
+  rejectReason   String?
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  campaign       AdCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([userId, campaignId])
+}
+
+/// 광고 매출 원장 (append-only, 승인 취소는 REVERSAL)
+model AdRevenueEntry {
+  id          String   @id @default(cuid())
+  leadId      String
+  campaignId  String
+  type        String // CREDIT | REVERSAL
+  amount      Int
+  dedupeKey   String   @unique // CREDIT:{leadId} | REVERSAL:{leadId}
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([campaignId, createdAt])
+}

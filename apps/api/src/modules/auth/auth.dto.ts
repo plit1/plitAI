@@ -11,6 +11,7 @@ export class SignupDto {
   @ApiProperty({ enum: ConsentType, isArray: true, description: 'TERMS, PRIVACY, AGE_14 필수' })
   @IsArray() @ArrayNotEmpty() @IsEnum(ConsentType, { each: true }) consents: ConsentType[];
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(4, 16) referralCode?: string;
+  @ApiPropertyOptional({ description: '초대 링크에 담긴 챌린지 회차' }) @IsOptional() @IsString() @Length(1, 80) inviteOfferingId?: string;
 }
 
 export class LoginDto {
