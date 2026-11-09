@@ -30,6 +30,8 @@ export class Env {
   @IsString() OAUTH_REDIRECT_BASE = 'http://localhost:4000/api/v1/auth/oauth';
 
   @IsOptional() @IsString() QNET_SERVICE_KEY?: string;
+  @IsOptional() @IsString() WORK24_API_KEY?: string;
+  @IsOptional() @IsString() KSTARTUP_SERVICE_KEY?: string;
   @IsOptional() @IsIn(['local', 's3']) STORAGE_DRIVER?: 'local' | 's3';
   @IsOptional() @IsString() S3_UPLOAD_BUCKET?: string;
   @IsOptional() @IsString() S3_KMS_KEY_ID?: string;

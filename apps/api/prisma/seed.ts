@@ -6,6 +6,7 @@ import { ChallengeType, Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import raw from './seed-data/certifications.raw.json';
 import demoQuiz from './seed-data/demo-quiz-items.json';
+import demoJS from '../src/data/demo-jobs-startup.json';
 import { DEFAULT_POLICY, DEFAULT_POLICY_VERSION } from '../src/modules/policy/policy.defaults';
 
 const prisma = new PrismaClient();
@@ -55,13 +56,27 @@ async function main() {
     });
   }
 
+  // 데모 채용공고·지원사업 (가상 회사·기관, isDemo 표시) — 운영 DB 에는 넣지 않음
+  if (process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_CONTENT !== 'false') {
+    type JobRow = [string, string, string, string, string, string, string | null, string[], string[], string[], string | null, number, number, string];
+    for (const [id, co, title, loc, emp, exp, edu, req, pref, cats, sal, postD, expD, desc] of demoJS.JB_DEMO_RAW as unknown as JobRow[]) {
+      const data = { companyName: co, title, description: desc, workLocation: loc, region: loc.split(' ')[0], employmentType: emp, experience: exp, education: edu, requiredCerts: req, preferredCerts: pref, categories: cats, salary: sal, postedAt: day(base, postD), expiresAt: day(base, expD), isDemo: true };
+      await prisma.jobPosting.upsert({ where: { provider_providerJobId: { provider: 'DEMO', providerJobId: id } }, create: { provider: 'DEMO', providerJobId: id, ...data }, update: data });
+    }
+    type ProgRow = [string, string, string, string, string, string | null, string[], string[], string, number, number, string, string];
+    for (const [id, via, title, agency, region, sgg, stages, inds, type, s0, s1, elig, sum] of demoJS.SU_DEMO_PROGRAMS as unknown as ProgRow[]) {
+      const data = { title, agency, region, sigungu: sgg, targetStages: stages, industries: inds, supportType: type, applyStart: day(base, s0), applyEnd: day(base, s1), eligibility: elig, summary: `${sum} · 데모 원천: ${via}`, isDemo: true };
+      await prisma.startupProgram.upsert({ where: { provider_externalId: { provider: 'DEMO', externalId: id } }, create: { provider: 'DEMO', externalId: id, ...data }, update: data });
+    }
+  }
+
   if (process.env.SEED_DEV_USERS !== 'false' && process.env.NODE_ENV !== 'production') {
     const pw = await bcrypt.hash('PlitAdmin123!', 12);
     for (const [email, nickname, role, code] of [['admin@plit.local', '최고관리자', 'SUPER_ADMIN', 'ADMIN001'], ['operator@plit.local', '운영자', 'OPERATOR', 'OPER0001']] as const) {
       await prisma.user.upsert({ where: { email }, create: { email, nickname, role, passwordHash: pw, referralCode: code, emailVerified: true, isTest: true }, update: {} });
     }
   }
-  console.log(`seed: certifications=${rows.length}, offerings=${await prisma.challengeOffering.count()}, policy=${DEFAULT_POLICY_VERSION}`);
+  console.log(`seed: certifications=${rows.length}, offerings=${await prisma.challengeOffering.count()}, jobs=${await prisma.jobPosting.count()}, programs=${await prisma.startupProgram.count()}, policy=${DEFAULT_POLICY_VERSION}`);
 }
 
 main().finally(() => prisma.$disconnect());
