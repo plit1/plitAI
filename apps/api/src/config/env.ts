@@ -29,6 +29,7 @@ export class Env {
   @IsOptional() @IsString() GOOGLE_CLIENT_SECRET?: string;
   @IsString() OAUTH_REDIRECT_BASE = 'http://localhost:4000/api/v1/auth/oauth';
 
+  @IsOptional() @IsString() QNET_SERVICE_KEY?: string;
   @IsOptional() @IsString() ANTHROPIC_API_KEY?: string;
   @IsString() AI_MODEL = 'claude-sonnet-5-5';
   @Transform(({ value }) => Number(value)) @IsInt() AI_DAILY_LIMIT_FREE = 3;

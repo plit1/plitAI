@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
@@ -9,6 +10,7 @@ export function configureApp(app: INestApplication) {
   app.use(helmet());
   app.use(cookieParser());
   app.enableCors({ origin: (process.env.APP_ORIGIN || 'http://localhost:3000').split(','), credentials: true });
+  (app as NestExpressApplication).useBodyParser('json', { limit: '1.1mb' }); // CSV 일괄 등록(1MB) 수용
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   const http = app.getHttpAdapter().getInstance();
   http.set('trust proxy', 1); // ALB 뒤에서 실제 IP
