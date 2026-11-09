@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Order, Prisma } from '@prisma/client';
 import { AppError, Conflict, Forbidden, NotFound } from '../../common/errors';
 import { PrismaService, Tx } from '../../common/prisma.service';
@@ -15,8 +15,9 @@ export const PASS_GRACE_DAYS = 30;
 const json = (v: unknown) => JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
 
 @Injectable()
-export class PaymentsService {
+export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger('Payments');
+  private timer?: NodeJS.Timeout;
   constructor(
     private readonly prisma: PrismaService,
     private readonly policy: PolicyService,
@@ -25,6 +26,33 @@ export class PaymentsService {
     private readonly audit: AuditService,
     @Inject(PAYMENT_PROVIDER) private readonly pg: PaymentProvider,
   ) {}
+
+  onModuleInit() {
+    if (process.env.NODE_ENV === 'test') return;
+    this.timer = setInterval(() => this.reconcilePending().catch((e) => this.logger.error(e)), 15 * 60_000);
+  }
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
+
+  /**
+   * 대사(reconciliation): 결과 불명 주문 확정 + 방치 주문 만료.
+   *  - PENDING + paymentKey 있음(승인 응답 유실): PG 조회 → DONE 이면 승인 반영, 그 외 확정 상태면 FAILED
+   *  - PENDING + paymentKey 없음 + 24시간 경과: 결제창 이탈 → CANCELLED
+   */
+  async reconcilePending(now = new Date()) {
+    const stale = new Date(now.getTime() - 24 * 3600_000);
+    const unknown = await this.prisma.order.findMany({ where: { status: 'PENDING', paymentKey: { not: null }, createdAt: { lt: new Date(now.getTime() - 5 * 60_000) } }, take: 100 });
+    let confirmed = 0, failed = 0, pendingStill = 0;
+    for (const o of unknown) {
+      const actual = await this.pg.get(o.paymentKey!).catch((e) => (e instanceof PgError && !e.retryable ? null : undefined));
+      if (actual === undefined) { pendingStill++; continue; } // PG 장애 — 다음 주기 재시도
+      if (actual && actual.status === 'DONE' && actual.orderId === o.orderNo) { await this.applyApproval(o.id, actual); confirmed++; continue; }
+      if (actual && ['READY', 'IN_PROGRESS', 'WAITING_FOR_DEPOSIT'].includes(actual.status)) { pendingStill++; continue; }
+      await this.prisma.order.updateMany({ where: { id: o.id, status: 'PENDING' }, data: { status: 'FAILED', failReason: `대사: PG 상태 ${actual?.status ?? 'NOT_FOUND'}` } });
+      failed++;
+    }
+    const expired = await this.prisma.order.updateMany({ where: { status: 'PENDING', paymentKey: null, createdAt: { lt: stale } }, data: { status: 'CANCELLED', failReason: '결제 미완료 24시간 경과 — 자동 만료' } });
+    return { checked: unknown.length, confirmed, failed, pendingStill, expired: expired.count };
+  }
 
   private newOrderNo() { return 'PLIT-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2, 8).toUpperCase(); }
 
@@ -170,7 +198,7 @@ export class PaymentsService {
       throw new AppError('REFUND_FAILED', '환불 처리 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.', HttpStatus.BAD_GATEWAY);
     }
     await this.prisma.$transaction(async (tx) => {
-      const { count } = await tx.order.updateMany({ where: { id: order.id, status: 'PAID' }, data: { status: 'REFUNDED', refundedAmount: order.amount } });
+      const { count } = await tx.order.updateMany({ where: { id: order.id, status: 'PAID' }, data: { status: 'REFUNDED', refundedAmount: order.amount, refundedAt: new Date() } });
       if (count === 0) return;
       await this.recordEvent(tx, order.id, `refunded:${order.id}`, 'CANCEL', { reason: opts.reason, actor: opts.actor });
       const pass = await tx.boosterPass.findUnique({ where: { orderId: order.id } });

@@ -391,6 +391,7 @@ model Order {
   method         String?
   approvedAt     DateTime?
   refundedAmount Int         @default(0)
+  refundedAt     DateTime? // 정산: 환불은 환불일 기준 반영
   failReason     String?
   isTest         Boolean     @default(true)
   createdAt      DateTime    @default(now())
