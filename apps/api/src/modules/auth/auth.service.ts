@@ -110,10 +110,25 @@ export class AuthService {
     return { user, created: true };
   }
 
+  async listIdentities(userId: string) {
+    return this.prisma.authIdentity.findMany({ where: { userId }, select: { provider: true, email: true, createdAt: true }, orderBy: { createdAt: 'asc' } });
+  }
+
+  /** 연결 해제: 이메일 로그인은 해제 불가, 소셜은 다른 로그인 수단이 남아 있어야 함 */
+  async unlinkIdentity(userId: string, provider: AuthProvider) {
+    if (provider === 'EMAIL') throw new AppError('CANNOT_UNLINK_EMAIL', '이메일 로그인은 해제할 수 없어요.');
+    const all = await this.prisma.authIdentity.findMany({ where: { userId } });
+    const target = all.find((i) => i.provider === provider);
+    if (!target) throw new AppError('NOT_LINKED', '연결되지 않은 계정이에요.', HttpStatus.NOT_FOUND);
+    if (all.length <= 1) throw new AppError('LAST_LOGIN_METHOD', '마지막 로그인 수단은 해제할 수 없어요. 다른 계정을 먼저 연결해주세요.');
+    await this.prisma.authIdentity.delete({ where: { id: target.id } });
+  }
+
   async linkIdentity(userId: string, provider: AuthProvider, providerUserId: string, email?: string | null) {
     const found = await this.prisma.authIdentity.findUnique({ where: { provider_providerUserId: { provider, providerUserId } } });
     if (found && found.userId !== userId) throw Conflict('IDENTITY_IN_USE', '이미 다른 PLIT 계정에 연결된 소셜 계정이에요.');
     if (found) return found;
+    if (await this.prisma.authIdentity.findFirst({ where: { userId, provider } })) throw Conflict('PROVIDER_ALREADY_LINKED', '이미 같은 종류의 소셜 계정이 연결되어 있어요.');
     return this.prisma.authIdentity.create({ data: { userId, provider, providerUserId, email: email ?? null } });
   }
 }

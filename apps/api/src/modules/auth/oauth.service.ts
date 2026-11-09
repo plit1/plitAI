@@ -36,7 +36,7 @@ const SPECS: Record<SocialProvider, ProviderSpec> = {
   },
 };
 
-export interface OAuthState { p: SocialProvider; consents: ConsentType[]; redirect: string; n: string; }
+export interface OAuthState { p: SocialProvider; consents: ConsentType[]; redirect: string; n: string; mode?: 'login' | 'link'; uid?: string; }
 
 /** 외부 HTTP 호출은 테스트에서 교체할 수 있도록 분리 */
 export type HttpFetch = (url: string, init?: RequestInit) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
@@ -65,18 +65,18 @@ export class OAuthService {
 
   private redirectUri(p: SocialProvider) { return `${this.config.get('OAUTH_REDIRECT_BASE')}/${p.toLowerCase()}/callback`; }
 
-  async authorizeUrl(p: SocialProvider, consents: ConsentType[], redirect: string) {
+  async authorizeUrl(p: SocialProvider, consents: ConsentType[], redirect: string, link?: { uid: string }) {
     const { id } = this.creds(p);
     const safeRedirect = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/';
-    const state = await this.jwt.signAsync({ p, consents, redirect: safeRedirect, n: randomToken(8) } satisfies OAuthState, { expiresIn: '10m' });
+    const state = await this.jwt.signAsync({ p, consents, redirect: safeRedirect, n: randomToken(8), typ: 'oauth_state', ...(link ? { mode: 'link', uid: link.uid } : { mode: 'login' }) }, { expiresIn: '10m' });
     const q = new URLSearchParams({ response_type: 'code', client_id: id, redirect_uri: this.redirectUri(p), state });
     if (SPECS[p].scope) q.set('scope', SPECS[p].scope);
     return `${SPECS[p].authorizeUrl}?${q}`;
   }
 
   async verifyState(p: SocialProvider, state: string): Promise<OAuthState> {
-    const s = await this.jwt.verifyAsync<OAuthState>(state).catch(() => null);
-    if (!s || s.p !== p) throw new AppError('INVALID_OAUTH_STATE', '로그인 요청이 만료되었어요. 다시 시도해주세요.', HttpStatus.BAD_REQUEST);
+    const s = await this.jwt.verifyAsync<OAuthState & { typ?: string }>(state).catch(() => null);
+    if (!s || s.typ !== 'oauth_state' || s.p !== p) throw new AppError('INVALID_OAUTH_STATE', '로그인 요청이 만료되었어요. 다시 시도해주세요.', HttpStatus.BAD_REQUEST);
     return s;
   }
 

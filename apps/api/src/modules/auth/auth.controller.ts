@@ -113,6 +113,10 @@ export class AuthController {
     try {
       const s = await this.oauth.verifyState(p, state);
       const profile = await this.oauth.exchange(p, code, state);
+      if (s.mode === 'link' && s.uid) {
+        await this.auth.linkIdentity(s.uid, p, profile.providerUserId, profile.email);
+        return res.redirect(302, `${origin}/my/account?linked=${p}`);
+      }
       const { user } = await this.auth.loginWithIdentity(p, profile, s.consents);
       if (user.mfaEnabledAt) {
         const mfaToken = await this.mfa.issueStepToken(user.id);
@@ -124,6 +128,7 @@ export class AuthController {
     } catch (e) {
       const code = e instanceof AppError ? e.code : 'OAUTH_FAILED';
       res.redirect(302, `${origin}/login?error=${code}`);
+      return;
     }
   }
 
