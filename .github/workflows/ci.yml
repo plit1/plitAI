@@ -24,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @plit/api exec prisma generate
       - run: pnpm --filter @plit/api exec prisma migrate deploy
       - run: pnpm --filter @plit/api typecheck
       - run: pnpm --filter @plit/api test
