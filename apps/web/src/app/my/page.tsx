@@ -17,7 +17,8 @@ export default function My() {
   return (
     <div className="space-y-5">
       <section className="card flex flex-wrap items-center justify-between gap-3 p-5">
-        <div><p className="text-xs text-ink-mute">반가워요</p><h1 className="text-xl font-black">{me.nickname}님</h1><p className="text-xs text-ink-mute">추천 코드 <span className="font-mono font-bold text-ink">{me.referralCode}</span> · <Link href="/my/account" className="font-semibold text-cobalt">계정 설정</Link> · <Link href="/my/orders" className="font-semibold text-cobalt">결제 내역</Link></p></div>
+        <div><p className="text-xs text-ink-mute">반가워요</p><h1 className="text-xl font-black">{me.nickname}님</h1><p className="text-xs text-ink-mute">추천 코드 <span className="font-mono font-bold text-ink">{me.referralCode}</span> · <Link href="/my/account" className="font-semibold text-cobalt">계정 설정</Link> · <Link href="/my/orders" className="font-semibold text-cobalt">결제 내역</Link></p>
+          <p className="mt-1 flex flex-wrap gap-2 text-xs"><Link href="/my/mate" className="font-semibold text-cobalt">내 메이트</Link><Link href="/jobs/saved" className="font-semibold text-cobalt">관심 공고</Link><Link href="/startup/roadmap" className="font-semibold text-cobalt">창업 로드맵</Link></p></div>
         <Link href="/my/points" className="rounded-2xl bg-clear-tint px-4 py-3 text-right"><p className="text-xs text-clear-deep">보유 포인트</p><p className="text-lg font-black text-clear-deep">{pts(me.points)}</p></Link>
       </section>
       <section aria-labelledby="mine">

@@ -109,3 +109,35 @@
 ### 토스 결제위젯 흐름 (웹)
 `POST /payments/orders` → `loadTossPayments(clientKey)` → `widgets({customerKey})` → `setAmount({currency:'KRW', value})` → `renderPaymentMethods/renderAgreement` → `requestPayment({orderId, orderName, successUrl, failUrl})`
 → successUrl `?paymentType&amount&orderId&paymentKey` → `POST /payments/confirm` (서버가 금액 재검증) / failUrl `?code&message&orderId`
+
+## Phase 6 추가 (세션 5)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| GET | /me/mate | 회원 | 메이트·XP·단계·진행률·컨디션·배지·칭호·진화 기록·코스튬 |
+| POST | /me/mate `{species, name?}` | 회원 | 입양 (409 ALREADY_ADOPTED) |
+| PATCH | /me/mate `{name?, species?, costume?}` | 회원 | 400 INVALID_NAME / 403 PREMIUM_REQUIRED(프리미엄 코스튬) |
+| POST | /admin/gamification/weekly-wins | SUPER_ADMIN | 주간 WIN XP 배치 수동 실행 (6시간 주기 자동, 주차별 1회) |
+| GET | /enrollments/:id/dashboard | 본인 | `comparison` 형태 변경: `{sample, fullSample, minSample, groupAvg7, myAvg7, wdl:{status WIN/DRAW/LOSE/UNAVAILABLE, reason COLLECTING/ZERO_AVERAGE/NEEDS_OBSERVATION/NOT_PARTICIPANT, gapMin, gapPct}, ranks|null, rankNote?, note}` |
+| POST | /sessions/:id/complete | 본인 | 응답에 `levelUp`(진화한 레벨 또는 null) 추가 |
+| GET | /jobs?q&region&employment&experience&certId&sort=match|deadline|recent&includeClosed | 공개(로그인 시 맞춤도) | 공고 검색 |
+| GET | /jobs/recommended | 회원 | 맞춤도 보통 이상 30건 + 내 자격증 |
+| GET | /jobs/:id | 공개 | 상세·맞춤 이유·고지 |
+| PUT/DELETE | /jobs/:id/save | 회원 | 관심 공고 |
+| GET | /me/jobs/saved | 회원 | |
+| GET/PUT | /me/job-profile | 회원 | 희망 지역·직무 키워드·경력·고용형태 + 내 자격증 |
+| PUT/DELETE | /me/cert-claims/:certId | 회원 | 보유 자격증 본인 입력 |
+| GET/POST | /admin/jobs | OPERATOR | 공고 목록·등록 (원문 https 필수, 근무지는 시·도로 시작) |
+| PATCH | /admin/jobs/:id `{status ACTIVE/ARCHIVED}` | OPERATOR | 감사 로그 |
+| GET | /admin/jobs/providers | OPERATOR | 공급자 상태 |
+| PUT | /admin/job-map/:certId `{keywords|null}` | OPERATOR | 자격증 → 직무 키워드 (null = 기본값 복원) |
+| GET | /startup/meta | 공개 | 업종·단계·지원유형·시도·예산·로드맵·신용보증재단 17·상권 출처·파트너(예시)·고지 |
+| GET | /startup/programs?q&region&industry&stage&type&sort=match|deadline&includeClosed | 공개(로그인 시 맞춤도) | 지원사업 검색 (지역은 전국 포함, 업종은 ALL 포함) |
+| GET | /startup/programs/:id | 공개 | 숨김 404 |
+| PUT/DELETE | /startup/programs/:id/save | 회원 | 관심 사업 |
+| GET | /me/startup/saved | 회원 | |
+| GET/PUT | /me/startup-profile `{industry|null, sido, sigungu, stage, budget}` | 회원 | 추천 업종(suggestion)·실효 업종·로드맵·지역 재단·업종 확인 사항 |
+| PUT | /me/startup-profile/roadmap/:taskId `{done}` | 회원 | 로드맵 체크 |
+| GET/POST | /admin/startup/programs | OPERATOR | 등록 (원문 https, 기간 검증) |
+| PATCH | /admin/startup/programs/:id `{status ACTIVE/HIDDEN}` | OPERATOR | 감사 로그 |
+| GET | /admin/startup/providers | OPERATOR | K-Startup·기업마당 상태 |
+| GET/PUT | /admin/startup/industry-map[/:certId] `{industry|null, reason?}` | OPERATOR | 자격증 → 업종 |

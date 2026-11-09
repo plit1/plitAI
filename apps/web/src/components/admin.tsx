@@ -7,6 +7,7 @@ import { Spinner } from './ui';
 
 const NAV = [
   ['/admin', '대시보드·심사'], ['/admin/policy', '정책'], ['/admin/offerings', '챌린지 회차'], ['/admin/exam-rounds', '시험 일정'],
+  ['/admin/jobs', '취업 공고'], ['/admin/startup', '창업 지원사업'],
   ['/admin/open-run', '오픈런'], ['/admin/quiz-items', '문항'], ['/admin/reports', '신고'], ['/admin/users', '회원'], ['/admin/orders', '결제'], ['/admin/settlement', '정산'], ['/admin/audit', '감사 로그'],
 ];
 

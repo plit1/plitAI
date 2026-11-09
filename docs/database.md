@@ -52,5 +52,13 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - `PassVerification.examRoundId` 사용 시작
 - 마이그레이션 `20261109142022_order_refunded_at`
 
-## 이후 추가 예정 테이블 (Phase 4~7)
-StudyRoom/ChatMessage/Report, CommunityPost/Comment/Like, QuizItem/QuizAttempt, Pet, Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, JobPosting 캐시, StartupProgram
+## Phase 6 추가
+- `Pet`(userId PK, species, name, selectedCostumeId) · `PetEvolution`(userId+level UNIQUE, trigger) — XP 는 기존 `XpLedgerEntry`(eventKey 멱등)에서 합산
+- `UserCertClaim`(본인 입력 자격증)
+- `JobPosting`(provider+providerJobId UNIQUE, region, requiredCerts/preferredCerts/categories 배열, status ACTIVE/ARCHIVED, isDemo, originalUrl, fetchedAt) · `CertJobMap`(관리자 키워드) · `JobProfile` · `SavedJob`
+- `StartupProgram`(provider+externalId UNIQUE, region/sigungu, targetStages/industries 배열, supportType, applyStart/End, status ACTIVE/HIDDEN, isDemo) · `CertIndustryMap` · `StartupProfile`(roadmap JSON) · `SavedProgram`
+- 시드: 데모 공고 24·지원사업 13 (NODE_ENV≠production 이고 SEED_DEMO_CONTENT≠false 일 때만)
+- 마이그레이션 `20261109143847_phase6_gamification_jobs_startup`
+
+## 이후 추가 예정 테이블 (Phase 7)
+Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, Notification

@@ -12,7 +12,11 @@ interface Dash {
   plan: 'FREE' | 'PREMIUM'; cert: { name: string }; round: string; daysLeft: number; recommendedDailyMin: number;
   record: { progress: number; totalMin: number; weekMin: number; streak: number; missions: { id: string; title: string; done: boolean }[]; subjects: { name: string; progress: number }[] };
   index: { label: string; value: number | null; explanation: string[]; disclaimer: string };
-  comparison: { available: boolean; sample: number; average?: number; outcome?: 'WIN' | 'DRAW' | 'LOSE'; topPercent?: number | null; note?: string };
+  comparison: {
+    sample: number; fullSample: number; minSample: number; groupAvg7: number | null; myAvg7: number | null; note: string; rankNote?: string;
+    wdl: { status: 'WIN' | 'DRAW' | 'LOSE' | 'UNAVAILABLE'; reason: string | null; gapMin: number | null; gapPct: number | null };
+    ranks: { today: number | null; recent7: number | null; cumulative: number | null } | null;
+  };
   openSession: Session | null;
 }
 const fmt = (s: number) => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -33,15 +37,21 @@ export default function Dashboard() {
   const complete = async () => {
     if (!session) return; setErr(null);
     try {
-      const r = await api<{ minutes: number; xp: number; missionCleared: string | null; streak: number }>(`/sessions/${session.id}/complete`, { method: 'POST' });
-      setToast(`Mission CLEAR! ${r.minutes}분 기록 · +${r.xp}XP${r.missionCleared ? ` · ${r.missionCleared}` : ''}`);
+      const r = await api<{ minutes: number; xp: number; missionCleared: string | null; streak: number; levelUp: number | null }>(`/sessions/${session.id}/complete`, { method: 'POST' });
+      setToast(`Mission CLEAR! ${r.minutes}분 기록 · +${r.xp}XP${r.missionCleared ? ` · ${r.missionCleared}` : ''}${r.levelUp ? ` · 메이트가 Lv.${r.levelUp} 로 진화했어요!` : ''}`);
       setSession(null); reload();
     } catch (e) { setErr(e instanceof ApiError ? e.message : '기록하지 못했어요.'); }
   };
 
   if (loading && !d) return <Spinner />;
   if (error || !d) return <ErrorBox message={error?.message ?? '대시보드를 불러오지 못했어요.'} onRetry={reload} />;
-  const outcomeTone = { WIN: 'clear', DRAW: 'cobalt', LOSE: 'risk' } as const;
+  const outcomeTone = { WIN: 'clear', DRAW: 'cobalt', LOSE: 'risk', UNAVAILABLE: 'mute' } as const;
+  const WDL_REASON: Record<string, [string, string]> = {
+    COLLECTING: ['집계 중', '같은 회차 비교 인원이 충분히 모이면 WIN·DRAW·LOSE 를 보여드려요.'],
+    ZERO_AVERAGE: ['집계 중', '아직 같은 회차 평균 공부 시간이 없어요.'],
+    NEEDS_OBSERVATION: ['기록 쌓는 중', '최근 7일 중 3일 이상 기록되면 비교해 드려요.'],
+    NOT_PARTICIPANT: ['비교 대상 아님', '이 회차 참여자만 비교할 수 있어요.'],
+  };
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-2">
@@ -84,13 +94,17 @@ export default function Dashboard() {
         </section>
         <section className="card p-5" aria-labelledby="cmp">
           <h2 id="cmp" className="text-sm font-bold">이번 주 같은 회차 챌린저와 비교</h2>
-          {d.comparison.available ? (
-            <div className="mt-2 space-y-1 text-sm">
-              <Badge tone={outcomeTone[d.comparison.outcome!]}>{d.comparison.outcome}</Badge>
-              <p>나 {d.record.weekMin}분 · 평균 {d.comparison.average}분 (표본 {d.comparison.sample}명)</p>
-              {d.comparison.topPercent ? <p className="font-bold text-cobalt">상위 {d.comparison.topPercent}%</p> : <p className="text-xs text-ink-mute">{d.comparison.note}</p>}
+          {(() => { const c = d.comparison; return (
+            <div className="mt-2 space-y-1 text-sm" data-testid="comparison">
+              <Badge tone={outcomeTone[c.wdl.status]}>{c.wdl.status === 'UNAVAILABLE' ? WDL_REASON[c.wdl.reason ?? '']?.[0] ?? '집계 중' : c.wdl.status}</Badge>
+              <p className="text-xs text-ink-soft">{c.wdl.status === 'UNAVAILABLE' ? WDL_REASON[c.wdl.reason ?? '']?.[1] : c.wdl.gapMin !== null ? `같은 회차 평균보다 하루 ${c.wdl.gapMin >= 0 ? `${c.wdl.gapMin}분 더` : `${-c.wdl.gapMin}분 덜`} 공부했어요 (${c.wdl.gapPct}%).` : null}</p>
+              {c.groupAvg7 !== null && <p>최근 7일 하루 평균 · 나 {c.myAvg7 ?? 0}분 / 같은 회차 {c.groupAvg7}분 <span className="text-xs text-ink-mute">(비교 표본 {c.fullSample}명)</span></p>}
+              {c.ranks ? (
+                <p className="font-bold text-cobalt">순위 · 오늘 {c.ranks.today ?? '–'}위 · 최근 7일 {c.ranks.recent7 ?? '–'}위 · 누적 {c.ranks.cumulative ?? '–'}위</p>
+              ) : c.rankNote ? <p className="text-xs text-ink-mute">{c.rankNote}</p> : null}
+              <p className="text-[11px] leading-relaxed text-ink-mute">{c.note}</p>
             </div>
-          ) : <p className="mt-2 text-sm text-ink-mute">{d.comparison.note}</p>}
+          ); })()}
         </section>
       </div>
 

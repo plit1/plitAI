@@ -7,10 +7,12 @@ export function Header() {
   const { me, ready, logout } = useAuth();
   return (
     <header className="sticky top-0 z-20 border-b border-ink-line/70 bg-surface/90 backdrop-blur">
-      <nav aria-label="주요 메뉴" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
+      <nav aria-label="주요 메뉴" className="mx-auto flex h-14 max-w-5xl items-center gap-3 overflow-x-auto whitespace-nowrap px-4 sm:gap-4">
         <Link href="/" className="font-display text-xl font-black tracking-tight text-cobalt">PLIT</Link>
         <Link href="/finder" className="text-sm font-semibold text-ink-soft hover:text-ink">자격증찾기</Link>
         <Link href="/community" className="text-sm font-semibold text-ink-soft hover:text-ink">커뮤니티</Link>
+        <Link href="/jobs" className="text-sm font-semibold text-ink-soft hover:text-ink">취업</Link>
+        <Link href="/startup" className="text-sm font-semibold text-ink-soft hover:text-ink">창업</Link>
         <Link href="/open-run" className="hidden text-sm font-semibold text-ink-soft hover:text-ink sm:inline">오픈런</Link>
         <Link href="/my" className="text-sm font-semibold text-ink-soft hover:text-ink">내 챌린지</Link>
         <div className="ml-auto flex items-center gap-2 text-sm">
@@ -53,3 +55,12 @@ export const OR_STATUS: Record<string, [string, 'cobalt' | 'clear' | 'gold' | 'm
   PENDING_REVIEW: ['검토 대기', 'mute'], COLLECTING: ['모집 중', 'cobalt'], THRESHOLD_REACHED: ['목표 달성 · 개설 심사 대기', 'clear'],
   UNDER_REVIEW: ['개설 검토 중', 'gold'], OPENED: ['개설됨', 'mint'], REJECTED: ['반려', 'risk'],
 };
+
+/** 접수·모집 상태 (취업 공고·창업 지원사업 공용) */
+export const LIFE: Record<string, [string, 'cobalt' | 'clear' | 'gold' | 'mint' | 'risk' | 'mute']> = {
+  OPEN: ['모집 중', 'clear'], ACTIVE: ['모집 중', 'clear'], ARCHIVED: ['보관', 'mute'], ALWAYS: ['상시 모집', 'cobalt'], CLOSING_SOON: ['마감 임박', 'gold'], UPCOMING: ['접수 예정', 'cobalt'], EXPIRED: ['마감', 'mute'], HIDDEN: ['숨김', 'mute'],
+};
+export const MATCH: Record<string, [string, 'cobalt' | 'clear' | 'gold' | 'mint' | 'risk' | 'mute']> = { HIGH: ['맞춤도 높음', 'clear'], MID: ['맞춤도 보통', 'cobalt'], LOW: ['맞춤도 낮음', 'mute'], CLOSED: ['마감', 'mute'] };
+export const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button type="button" aria-pressed={on} onClick={onClick} className={`rounded-full border px-3 py-1 text-xs font-semibold ${on ? 'border-cobalt bg-cobalt text-white' : 'border-ink-line bg-surface text-ink-soft'}`}>{children}</button>
+);
