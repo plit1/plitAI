@@ -14,6 +14,8 @@ export interface PolicyValues {
   referralReward: number; // 친구 초대 참여 확정 보상
   freeCapDefault: number;
   premiumCapDefault: number;
+  openRunTarget: number; // 오픈런 개설 심사 기준 관심 인원
+  openRunDailyLimit: number; // 회원당 하루 신규 요청 수
   analysisXp: number;
   missionXp: number;
   /** 플릿런(FREE)에서 허용되는 기능. 나머지는 PREMIUM 전용 */
@@ -34,6 +36,8 @@ export const DEFAULT_POLICY: PolicyValues = {
   referralReward: 1000,
   freeCapDefault: 300,
   premiumCapDefault: 300,
+  openRunTarget: 200,
+  openRunDailyLimit: 3,
   analysisXp: 15,
   missionXp: 25,
   freeFeatures: ['TODAY_STUDY', 'BASIC_PROBABILITY', 'STUDY_ROOM', 'COMMUNITY', 'VERIFICATION', 'AI_ROADMAP_BASIC'],
