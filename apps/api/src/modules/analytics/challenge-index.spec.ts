@@ -1,4 +1,4 @@
-import { challengeIndex, cohortCompare, studyWindow } from './challenge-index';
+import { challengeIndex, classifyWdl, competitionRank, competitionView, studyWindow } from './challenge-index';
 import { kstDate } from '../../common/time';
 
 describe('challengeIndex (데모 PLIT_AN 이관)', () => {
@@ -46,14 +46,38 @@ describe('studyWindow', () => {
   });
 });
 
-describe('cohortCompare', () => {
-  it('표본 10명 미만이면 비교 비공개', () => {
-    expect(cohortCompare(100, [1, 2, 3]).available).toBe(false);
+describe('competitionView (데모 computeView 이관)', () => {
+  const today = '2026-11-09';
+  const days = (n: number, min: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [new Date(Date.parse(`${today}T00:00:00Z`) - i * 86400000).toISOString().slice(0, 10), min]));
+  const cohort = (mins: number[]) => mins.map((m, i) => ({ userId: `u${i}`, enrolledDay: '2026-10-01', daily: days(7, m), cumulative: m * 7 }));
+
+  it('표본 10명 미만이면 판정 보류(COLLECTING)·순위 없음', () => {
+    const v = competitionView(cohort([60, 60, 60]), 'u0', today);
+    expect(v.wdl).toMatchObject({ status: 'UNAVAILABLE', reason: 'COLLECTING' });
+    expect(v.ranks).toBeNull();
   });
-  it('상위 10% 이내 WIN, 평균 이상 DRAW, 미만 LOSE', () => {
-    const cohort = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-    expect(cohortCompare(100, cohort)).toMatchObject({ available: true, outcome: 'WIN', topPercent: 10 });
-    expect(cohortCompare(60, cohort)).toMatchObject({ outcome: 'DRAW' });
-    expect(cohortCompare(15, cohort)).toMatchObject({ outcome: 'LOSE' });
+  it('그룹 평균 대비 +10% 초과 WIN, −10% 미만 LOSE, 사이 DRAW', () => {
+    const rows = cohort([100, 100, 100, 100, 100, 100, 100, 100, 100, 100]);
+    rows.push({ userId: 'me', enrolledDay: '2026-10-01', daily: days(7, 130), cumulative: 910 });
+    const win = competitionView(rows, 'me', today);
+    expect(win.wdl.status).toBe('WIN'); // 평균 ≈102.7 → +26.6%
+    rows[10] = { ...rows[10], daily: days(7, 105) };
+    expect(competitionView(rows, 'me', today).wdl.status).toBe('DRAW');
+    rows[10] = { ...rows[10], daily: days(7, 60) };
+    const lose = competitionView(rows, 'me', today);
+    expect(lose.wdl).toMatchObject({ status: 'LOSE' });
+    expect(lose.wdl.gapPct!).toBeLessThan(-10);
+  });
+  it('신규 참여 3일 미만은 판정 보류, 7일 평균은 관찰일수로 나눔', () => {
+    const rows = cohort([60, 60, 60, 60, 60, 60, 60, 60, 60, 60]);
+    rows.push({ userId: 'new', enrolledDay: '2026-11-08', daily: days(2, 90), cumulative: 180 });
+    const v = competitionView(rows, 'new', today);
+    expect(v.wdl.reason).toBe('NEEDS_OBSERVATION');
+    expect(v.myAvg7).toBe(90);
+    expect(v.ranks!.recent7).toBeNull(); // 7일 전체 관찰 전
+  });
+  it('동점은 같은 순위, 다음 순위 건너뜀 (1,2,2,4)', () => {
+    expect([100, 80, 80, 50].map((m) => competitionRank([100, 80, 80, 50], m))).toEqual([1, 2, 2, 4]);
+    expect(classifyWdl(10)).toBe('DRAW'); expect(classifyWdl(10.1)).toBe('WIN'); expect(classifyWdl(-10.1)).toBe('LOSE');
   });
 });

@@ -88,14 +88,57 @@ export function studyWindow(sessions: SessionLike[], now: Date, kstDate: (d: Dat
   return { weekMin: week, prevWeekMin: prev, avg7, trendPct: prevAvg > 0 ? Math.round(((avg7 - prevAvg) / prevAvg) * 1000) / 10 : null };
 }
 
-/** 회차 내 비교 (표본 미달 시 비공개). 반환값에 타인 원천 기록을 담지 않는다. */
-export function cohortCompare(myWeekMin: number, cohortWeekMins: number[]) {
-  const n = cohortWeekMins.length;
-  if (n < INDEX_DEFAULTS.minSample) return { available: false as const, sample: n, note: `비교 대상이 ${INDEX_DEFAULTS.minSample}명 이상 모이면 열려요` };
-  const avg = Math.round(cohortWeekMins.reduce((a, b) => a + b, 0) / n);
-  const sorted = [...cohortWeekMins].sort((a, b) => b - a);
-  const rank = sorted.findIndex((v) => myWeekMin >= v) + 1 || n;
-  const topPercent = Math.max(1, Math.round((rank / n) * 100));
-  const outcome = topPercent <= INDEX_DEFAULTS.winPct ? 'WIN' : myWeekMin >= avg ? 'DRAW' : 'LOSE';
-  return { available: true as const, sample: n, average: avg, topPercent, outcome };
+export const COMPETITION = { winPct: 10, minSample: 10, minObsDays: 3, windowDays: 7 };
+
+/** 데모 classifyWdl: 그룹 7일 평균 대비 +winPct% 초과 WIN, −winPct% 미만 LOSE, 그 사이 DRAW */
+export const classifyWdl = (gapPct: number, winPct = COMPETITION.winPct) => (gapPct > winPct ? 'WIN' : gapPct < -winPct ? 'LOSE' : 'DRAW');
+/** 데모 competitionRank: 동점은 같은 순위, 다음 순위는 건너뜀 (1,2,2,4) */
+export const competitionRank = (values: number[], mine: number) => values.filter((v) => v > mine).length + 1;
+
+export interface CohortRow { userId: string; enrolledDay: string; daily: Record<string, number>; cumulative: number }
+const addDay = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+
+/**
+ * 회차 내 경쟁 뷰 (데모 PLIT_AN.computeView 이관). 반환값에는 집계값과 본인 값만 — 타인 원천 기록 없음.
+ *  - 7일 평균: 7일 이상 참여자는 7일 합/7, 신규 참여자는 합/관찰일수
+ *  - 비교 그룹 = 최근 7일 전체 관찰 참여자. 전체 N·완전 관찰자 모두 최소 표본 이상이어야 판정
+ *  - 본인 관찰 3일 미만이면 판정 보류
+ */
+export function competitionView(rows: CohortRow[], meId: string, today: string, policy = COMPETITION) {
+  const W = policy.windowDays, from7 = addDay(today, -(W - 1));
+  const calc = rows.map((r) => {
+    const start = r.enrolledDay > from7 ? r.enrolledDay : from7;
+    const obs7 = dayDiff(start, today) + 1;
+    const full = r.enrolledDay <= from7;
+    let sum7 = 0;
+    for (const [d, m] of Object.entries(r.daily)) if (d >= from7 && d <= today) sum7 += m;
+    return { userId: r.userId, todayMin: r.daily[today] ?? 0, sum7, obs7, full, avg7: full ? sum7 / W : sum7 / Math.max(1, obs7), cumulative: r.cumulative };
+  });
+  const N = calc.length, fullRows = calc.filter((r) => r.full), me = calc.find((r) => r.userId === meId) ?? null;
+  const groupAvg7 = fullRows.length ? fullRows.reduce((s, r) => s + r.avg7, 0) / fullRows.length : null;
+  const sampleOk = N >= policy.minSample;
+  type Wdl = { status: 'WIN' | 'DRAW' | 'LOSE' | 'UNAVAILABLE'; reason: string | null; gapMin: number | null; gapPct: number | null };
+  let wdl: Wdl = { status: 'UNAVAILABLE', reason: 'NOT_PARTICIPANT', gapMin: null, gapPct: null };
+  if (me) {
+    if (!sampleOk || fullRows.length < policy.minSample) wdl = { status: 'UNAVAILABLE', reason: 'COLLECTING', gapMin: null, gapPct: null };
+    else if (!(groupAvg7! > 0)) wdl = { status: 'UNAVAILABLE', reason: 'ZERO_AVERAGE', gapMin: null, gapPct: null };
+    else if (me.obs7 < policy.minObsDays) wdl = { status: 'UNAVAILABLE', reason: 'NEEDS_OBSERVATION', gapMin: null, gapPct: null };
+    else {
+      const gp = ((me.avg7 - groupAvg7!) / groupAvg7!) * 100;
+      wdl = { status: classifyWdl(gp, policy.winPct) as Wdl['status'], reason: null, gapMin: Math.round(me.avg7 - groupAvg7!), gapPct: Math.round(gp * 10) / 10 };
+    }
+  }
+  const fr = fullRows.map((r) => r.avg7);
+  const ranks = me && sampleOk ? {
+    today: { rank: competitionRank(calc.map((r) => r.todayMin), me.todayMin), of: N },
+    recent7: me.full && fullRows.length >= policy.minSample ? { rank: competitionRank(fr, me.avg7), of: fullRows.length, topPct: Math.max(1, Math.round((competitionRank(fr, me.avg7) / fullRows.length) * 100)) } : null,
+    cumulative: { rank: competitionRank(calc.map((r) => r.cumulative), me.cumulative), of: N },
+  } : null;
+  return {
+    sample: N, fullSample: fullRows.length, minSample: policy.minSample, winPct: policy.winPct,
+    groupAvg7: groupAvg7 == null ? null : Math.round(groupAvg7), myAvg7: me ? Math.round(me.avg7) : null,
+    wdl, ranks,
+    note: wdl.reason === 'COLLECTING' ? `비교 대상이 ${policy.minSample}명 이상 모이면 열려요` : wdl.reason === 'NEEDS_OBSERVATION' ? `${policy.minObsDays}일 이상 기록이 쌓이면 비교가 열려요` : null,
+  };
 }

@@ -6,6 +6,7 @@ import { daysBetween } from '../../common/time';
 import { AuditService } from '../admin/audit.service';
 import { EntitlementService } from '../challenges/entitlement.service';
 import { PointsService } from '../points/points.service';
+import { XpService } from '../gamification/xp.service';
 
 export type ReviewDecision = 'APPROVE' | 'NEEDS_FIX' | 'FAIL' | 'REJECT';
 const LOCKED: VerificationStatus[] = ['REVIEWING', 'APPROVED', 'FAILED'];
@@ -19,7 +20,7 @@ export function maskExamNumber(raw: string) {
 
 @Injectable()
 export class VerificationsService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly points: PointsService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly points: PointsService, private readonly audit: AuditService, private readonly xp: XpService) {}
 
   /** 공식 개인 합격조회 API 가 확인되지 않아 자동 검증을 가정하지 않는다 → 증빙 + 관리자 심사 */
   async submit(userId: string, enrollmentId: string, input: { examNumber: string; evidenceKey: string; examRoundId?: string }) {
@@ -102,7 +103,7 @@ export class VerificationsService {
       if (decision === 'APPROVE') {
         reward = e.rewardSnapshot;
         await this.points.post(tx, { userId: v.userId, type: 'EARN', amount: reward, reason: `${label} 합격 승인`, dedupeKey: `reward:${e.id}`, refType: 'PassVerification', refId: v.id, createdById: adminId });
-        await tx.xpLedgerEntry.upsert({ where: { eventKey: `clear:${e.id}` }, create: { userId: v.userId, deltaXp: CLEAR_XP, sourceType: 'clear', sourceId: e.id, eventKey: `clear:${e.id}` }, update: {} });
+        await this.xp.award(tx, v.userId, [{ eventKey: `clear:${e.id}`, sourceType: 'clear', sourceId: e.id, deltaXp: CLEAR_XP }]);
         await tx.enrollment.update({ where: { id: e.id }, data: { status: 'COMPLETED' } });
       } else if (decision === 'FAIL') {
         await this.points.post(tx, { userId: v.userId, type: 'RESULT', amount: 0, reason: `${label} 불합격 확인 · 합격 보상 0P`, dedupeKey: `fail:${e.id}`, refType: 'PassVerification', refId: v.id, createdById: adminId });

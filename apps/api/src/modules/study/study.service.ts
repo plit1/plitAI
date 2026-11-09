@@ -3,8 +3,9 @@ import { Prisma, StudySession } from '@prisma/client';
 import { AppError, Conflict, NotFound } from '../../common/errors';
 import { PrismaService } from '../../common/prisma.service';
 import { daysBetween, kstDate } from '../../common/time';
-import { challengeIndex, cohortCompare, INDEX_DEFAULTS, studyWindow } from '../analytics/challenge-index';
+import { challengeIndex, competitionView, INDEX_DEFAULTS, studyWindow } from '../analytics/challenge-index';
 import { EntitlementService } from '../challenges/entitlement.service';
+import { XpEvent, XpService } from '../gamification/xp.service';
 
 export const STUDY_RULES = { minStudySec: 60, maxSessionMin: INDEX_DEFAULTS.maxSessionMin, maxDailyMin: INDEX_DEFAULTS.maxDailyMin };
 /** 데모 GX_POLICY.pet: 기본 10XP + 10분당 5XP, 최대 60XP */
@@ -15,7 +16,7 @@ type Mission = { id: string; title: string; minutes: number; done: boolean; prio
 
 @Injectable()
 export class StudyService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly xp: XpService) {}
 
   private elapsed(s: StudySession, now = new Date()) {
     return s.elapsedSec + (s.status === 'RUNNING' && s.resumedAt ? Math.floor((now.getTime() - s.resumedAt.getTime()) / 1000) : 0);
@@ -96,11 +97,10 @@ export class StudyService {
         },
       });
       const xp = minutes > 0 ? studyXp(minutes) : 0;
-      if (xp > 0) await tx.xpLedgerEntry.create({ data: { userId, deltaXp: xp, sourceType: 'study', sourceId: s.id, eventKey: `study:${s.id}` } });
-      if (streakUp && updated.streak > 0 && updated.streak % 7 === 0) {
-        await tx.xpLedgerEntry.upsert({ where: { eventKey: `streak7:${s.enrollmentId}:${updated.streak}` }, create: { userId, deltaXp: 80, sourceType: 'streak', sourceId: s.enrollmentId, eventKey: `streak7:${s.enrollmentId}:${updated.streak}` }, update: {} });
-      }
-      return { minutes, xp, missionCleared: cleared, streak: updated.streak, progress: updated.progress };
+      const events: XpEvent[] = xp > 0 ? [{ eventKey: `study:${s.id}`, sourceType: 'study', sourceId: s.id, deltaXp: xp }] : [];
+      if (streakUp && updated.streak > 0 && updated.streak % 7 === 0) events.push({ eventKey: `streak7:${s.enrollmentId}:${updated.streak}`, sourceType: 'streak', sourceId: s.enrollmentId, deltaXp: 80 });
+      const xpResult = await this.xp.award(tx, userId, events);
+      return { minutes, xp, missionCleared: cleared, streak: updated.streak, progress: updated.progress, levelUp: xpResult.levelAfter > xpResult.levelBefore ? xpResult.levelAfter : null };
     });
   }
 
@@ -128,6 +128,27 @@ export class StudyService {
     });
   }
 
+  /**
+   * 회차 경쟁 뷰 입력: 같은 회차 참가자(취소 제외·테스트/탈퇴 계정 제외)의 KST 일별 학습 분, 참여일, 누적.
+   * 집계만 반환하며 타인 원천 기록은 응답에 포함하지 않는다.
+   */
+  async competition(offeringId: string, meId: string, now = new Date()) {
+    const today = kstDate(now);
+    const since = new Date(Date.parse(`${today}T00:00:00+09:00`) - 6 * 86400000);
+    const [enrs, daily] = await Promise.all([
+      this.prisma.enrollment.findMany({ where: { offeringId, status: { not: 'CANCELLED' }, user: { isTest: false, status: 'ACTIVE' } }, select: { userId: true, joinedAt: true, record: { select: { totalMin: true } } } }),
+      this.prisma.$queryRaw<{ userId: string; day: string; m: bigint }[]>`
+        SELECT s."userId", to_char(s."endedAt" AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD') AS day, SUM(s."minutes") AS m
+        FROM "StudySession" s JOIN "Enrollment" e ON e."id" = s."enrollmentId"
+        WHERE e."offeringId" = ${offeringId} AND s."status" = 'COMPLETED' AND s."endedAt" >= ${since}
+        GROUP BY s."userId", day`,
+    ]);
+    const byUser = new Map<string, Record<string, number>>();
+    for (const d of daily) { const m = byUser.get(d.userId) ?? {}; m[d.day] = Number(d.m); byUser.set(d.userId, m); }
+    const rows = enrs.map((e) => ({ userId: e.userId, enrolledDay: kstDate(e.joinedAt), daily: byUser.get(e.userId) ?? {}, cumulative: e.record?.totalMin ?? 0 }));
+    return competitionView(rows, meId, today);
+  }
+
   /** 대시보드: 학습기록 + PLIT 도전 지표(추정) + 회차 내 비교 */
   async dashboard(userId: string, enrollmentId: string) {
     const { enrollment, plan } = await this.entitlements.require(userId, enrollmentId, 'BASIC_PROBABILITY');
@@ -139,16 +160,9 @@ export class StudyService {
     const now = new Date();
     const index = this.indexFor(snap);
 
-    // 비교 모집단: 같은 회차 참가자 (FREE/PREMIUM 모두, 테스트·탈퇴 계정 제외). 집계값만 반환.
-    const since = new Date(now.getTime() - 7 * 86400000);
-    const cohort = await this.prisma.$queryRaw<{ userId: string; m: bigint }[]>`
-      SELECT e."userId", COALESCE(SUM(LEAST(s."minutes", ${STUDY_RULES.maxSessionMin})), 0) AS m
-      FROM "Enrollment" e JOIN "User" u ON u."id" = e."userId"
-      LEFT JOIN "StudySession" s ON s."enrollmentId" = e."id" AND s."status" = 'COMPLETED' AND s."endedAt" >= ${since}
-      WHERE e."offeringId" = ${offering.id} AND e."status" = 'ACTIVE' AND u."isTest" = false AND u."status" = 'ACTIVE'
-      GROUP BY e."userId"`;
-    const compare = cohortCompare(w.weekMin, cohort.map((c) => Number(c.m)));
-    const comparison = plan === 'PREMIUM' || !compare.available ? compare : { available: true, sample: compare.sample, average: compare.average, outcome: compare.outcome, topPercent: null, note: '상세 순위는 플릿 부스터 패스에서 볼 수 있어요' };
+    const comp = await this.competition(offering.id, userId);
+    // 플릿런: WIN/DRAW/LOSE·평균 비교까지 / 부스터: 상세 순위 포함
+    const comparison = plan === 'PREMIUM' ? comp : { ...comp, ranks: null, rankNote: '상세 순위는 플릿 부스터 패스에서 볼 수 있어요' };
 
     return {
       enrollmentId, offeringId: offering.id, plan, cert: { id: offering.cert.id, name: offering.cert.name }, round: offering.round, examDate: offering.examDate, daysLeft,

@@ -807,3 +807,159 @@ model NoticeAck {
 
   @@id([userId, version])
 }
+
+// ───────────────────────── 게이미피케이션 (Phase 6) ─────────────────────────
+// XP 는 XpLedgerEntry(경제적 가치 없음) 합계로 계산. 메이트는 1인 1마리.
+
+model Pet {
+  userId            String   @id
+  species           String // DOG | CAT
+  name              String
+  selectedCostumeId String   @default("none")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+/// 진화 기록 (레벨당 1회)
+model PetEvolution {
+  id        String   @id @default(cuid())
+  userId    String
+  level     Int
+  trigger   String // adopt | study | test | streak | clear | weekly
+  reachedAt DateTime @default(now())
+
+  @@unique([userId, level])
+}
+
+// ───────────────────────── 취업하기 (Phase 6) ─────────────────────────
+
+/// 본인 신고 자격증 (공식 검증 전). 검증=합격 인증 승인, 준비 중=챌린지 참여에서 파생
+model UserCertClaim {
+  userId    String
+  certId    String
+  createdAt DateTime @default(now())
+
+  @@id([userId, certId])
+}
+
+enum JobStatus {
+  ACTIVE
+  ARCHIVED // 관리자 보관(목록 제외)
+}
+
+/// 채용공고. 외부 공고는 원문 링크·수집 시각을 보관하고 원문으로 지원하도록 안내
+model JobPosting {
+  id             String     @id @default(cuid())
+  provider       String // DEMO | ADMIN | WORK24 ...
+  providerJobId  String
+  companyName    String
+  title          String
+  description    String
+  workLocation   String // "경기 화성"
+  region         String // 시·도 (workLocation 첫 단어)
+  employmentType String // 정규직 | 계약직 | 인턴 | 파견·기타
+  experience     String // NEW | EXP | ANY
+  education      String?
+  requiredCerts  String[]
+  preferredCerts String[]
+  categories     String[] // 관련 직무 키워드
+  salary         String?
+  postedAt       DateTime
+  expiresAt      DateTime?
+  originalUrl    String?
+  fetchedAt      DateTime   @default(now())
+  status         JobStatus  @default(ACTIVE)
+  isDemo         Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  saved          SavedJob[]
+
+  @@unique([provider, providerJobId])
+  @@index([status, region])
+}
+
+/// 자격증 → 추천 직무 키워드 (관리자 수정 가능, 법정 요건 충족을 보증하지 않음)
+model CertJobMap {
+  certId    String   @id
+  keywords  String[]
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model JobProfile {
+  userId     String   @id
+  regions    String[]
+  roles      String[]
+  experience String? // NEW | EXP | ANY
+  employment String[]
+  updatedAt  DateTime @updatedAt
+}
+
+model SavedJob {
+  userId    String
+  jobId     String
+  createdAt DateTime   @default(now())
+  job       JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@id([userId, jobId])
+}
+
+// ───────────────────────── 창업하기 (Phase 6) ─────────────────────────
+
+enum ProgramStatus {
+  ACTIVE
+  HIDDEN
+}
+
+/// 정부·지자체 지원사업 공고 (K-Startup 등 공식 API 연동 전에는 관리자 등록·데모)
+model StartupProgram {
+  id           String         @id @default(cuid())
+  provider     String // DEMO | ADMIN | KSTARTUP | BIZINFO
+  externalId   String
+  title        String
+  agency       String
+  region       String // 전국 | 시·도
+  sigungu      String?
+  targetStages String[] // INTEREST | PREP | OPEN
+  industries   String[] // NAIL | HAIR | ... | ALL
+  supportType  String // GRANT | LOAN | GUARANTEE | EDU | ...
+  applyStart   DateTime?
+  applyEnd     DateTime?
+  eligibility  String
+  summary      String
+  sourceUrl    String?
+  status       ProgramStatus  @default(ACTIVE)
+  isDemo       Boolean        @default(false)
+  updatedAt    DateTime       @updatedAt
+  saved        SavedProgram[]
+
+  @@unique([provider, externalId])
+}
+
+/// 자격증 → 관련 창업 업종 (관리자 수정 가능)
+model CertIndustryMap {
+  certId    String   @id
+  industry  String
+  reason    String
+  updatedAt DateTime @updatedAt
+}
+
+model StartupProfile {
+  userId    String   @id
+  industry  String?
+  sido      String   @default("")
+  sigungu   String   @default("")
+  stage     String   @default("INTEREST")
+  budget    String   @default("")
+  roadmap   Json     @default("{}") // { taskId: true }
+  updatedAt DateTime @updatedAt
+}
+
+model SavedProgram {
+  userId    String
+  programId String
+  createdAt DateTime       @default(now())
+  program   StartupProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@id([userId, programId])
+}

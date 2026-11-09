@@ -64,7 +64,7 @@ describe('MODULE 03/04/09 챌린지·부스터 패스·결제 (e2e)', () => {
       const d = await http().get(`/api/v1/enrollments/${j.body.enrollment.id}/dashboard`).set(a.auth).expect(200);
       expect(d.body.index.label).toBe('PLIT 도전 지표 (추정)');
       expect(d.body.index.disclaimer).toContain('실제 합격 확률이 아니에요');
-      expect(d.body.comparison.available).toBe(false); // 표본 10명 미만
+      expect(d.body.comparison.wdl).toMatchObject({ status: 'UNAVAILABLE', reason: 'COLLECTING' }); // 표본 10명 미만
     });
   });
 

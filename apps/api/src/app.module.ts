@@ -26,6 +26,8 @@ import { StrategyModule } from './modules/strategy/strategy.module';
 import { CommunityModule } from './modules/community/community.module';
 import { StudyRoomModule } from './modules/study-room/study-room.module';
 import { SettlementModule } from './modules/settlement/settlement.module';
+import { XpModule } from './modules/gamification/xp.service';
+import { GamificationModule } from './modules/gamification/gamification.module';
 import { PointsModule } from './modules/points/points.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { StudyModule } from './modules/study/study.module';
@@ -45,8 +47,8 @@ import { VerificationsModule } from './modules/verifications/verifications.modul
     }),
     JwtModule.registerAsync({ global: true, useFactory: () => ({ secret: process.env.JWT_ACCESS_SECRET, signOptions: { expiresIn: (process.env.JWT_ACCESS_TTL || '15m') as any } }) }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: limit(120) }]),
-    PrismaModule, StorageModule, AuditModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
-    CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule, StrategyModule, CommunityModule, StudyRoomModule, SettlementModule,
+    PrismaModule, StorageModule, AuditModule, XpModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
+    CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule, StrategyModule, CommunityModule, StudyRoomModule, SettlementModule, GamificationModule,
   ],
   controllers: [HealthController],
   providers: [

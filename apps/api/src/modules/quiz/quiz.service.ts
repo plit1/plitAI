@@ -5,6 +5,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { AuditService } from '../admin/audit.service';
 import { EntitlementService } from '../challenges/entitlement.service';
 import { StudyService } from '../study/study.service';
+import { XpService } from '../gamification/xp.service';
 import { grade, pickItems, Subject, TEST_SIZE, unanswered } from './quiz.grading';
 
 export const CLEAR_MODE_DAYS = 7; // 데모 ht.clearModeDays
@@ -14,7 +15,7 @@ const SAMPLE_NOTICE = '공식 기출 문제가 아닌 예시 문항이에요.';
 
 @Injectable()
 export class QuizService {
-  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly study: StudyService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly study: StudyService, private readonly audit: AuditService, private readonly xp: XpService) {}
 
   /** 응시 시작. 제출 전 응시가 있으면 그대로 반환 (새로 뽑아 정답 탐색하는 것 방지) */
   async start(userId: string, enrollmentId: string) {
@@ -78,7 +79,7 @@ export class QuizService {
       if (count === 0) throw Conflict('ALREADY_SUBMITTED', '이미 제출한 시험이에요.');
       const missions = (before.rec.missions as { title: string; done: boolean }[]).map((m) => (/QUICK TEST/.test(m.title) ? { ...m, done: true } : m));
       await tx.studyRecord.update({ where: { id: before.rec.id }, data: { accuracy: g.accuracy, expectedScore: g.expectedScore, subjects: g.subjects as unknown as Prisma.InputJsonValue, missions: missions as unknown as Prisma.InputJsonValue } });
-      await tx.xpLedgerEntry.create({ data: { userId, deltaXp: TEST_XP, sourceType: 'test', sourceId: a.id, eventKey: `test:${a.id}` } });
+      await this.xp.award(tx, userId, [{ eventKey: `test:${a.id}`, sourceType: 'test', sourceId: a.id, deltaXp: TEST_XP }]);
     });
     return this.view(a.id, userId);
   }
