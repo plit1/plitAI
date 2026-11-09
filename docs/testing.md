@@ -5,8 +5,14 @@
 |---|---|---|
 | API 단위 + 통합(E2E) | `cd apps/api && pnpm test` | 실제 PostgreSQL `plit_test` (이름에 test 없으면 실행 거부) |
 | 웹 타입체크·빌드 | `pnpm --filter @plit/web typecheck && pnpm --filter @plit/web build` | |
-| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
+| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
 | CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
+
+## 세션 3 실행 결과 (Phase 4)
+- API: **20 suites / 143 tests 통과** (세션 2 대비 +48) — QUICK TEST 6(+채점·출제 5), 전략 규칙 5, 코칭 규칙 6, 전략·코칭 e2e 7(가짜 Claude: 요청 형태·비용·숫자 검증·거절·오류·일일 한도), 커뮤니티 9, 채팅 가드 4, 스터디룸 socket.io 6(실제 소켓 연결)
+- 브라우저 `phase4-flow`: QUICK TEST → 전략·코칭(키 없음 폴백) → 플릿런 403 → 실시간 채팅 A→B → 스터디룸 글 커뮤니티 노출 → 좋아요·댓글 → 신고 → 관리자(MFA) 숨김 → 관리자 문항·AI 사용량 → 모바일 **통과**
+- 실제 Claude API 호출은 하지 않음 (키 없음). 요청 형태는 가짜 클라이언트로 검증
+- 발견·수정 결함: (1) DTO optional 필드가 undefined 로 기존 값 덮어씀(ES2022 class fields) (2) 소켓 인증이 이벤트보다 늦게 끝나는 경합 (3) AI 일일 한도가 성공 호출을 세지 않음(Prisma `not` 의 NULL 제외) (4) 댓글 입력과 섹션의 접근성 이름 중복 (5) 키 없을 때 "남은 횟수 0" 오해 표시
 
 ## 세션 2 실행 결과 (Phase 3)
 - API: **12 suites / 95 tests 통과** (세션 1 대비 +44) — MFA 5, OAuth·계정연결 7, 오픈런 6, 텍스트필터 11, 시험일정 7(+파서 3), TOTP 8

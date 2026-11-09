@@ -10,6 +10,7 @@ export function Header() {
       <nav aria-label="주요 메뉴" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
         <Link href="/" className="font-display text-xl font-black tracking-tight text-cobalt">PLIT</Link>
         <Link href="/finder" className="text-sm font-semibold text-ink-soft hover:text-ink">자격증찾기</Link>
+        <Link href="/community" className="text-sm font-semibold text-ink-soft hover:text-ink">커뮤니티</Link>
         <Link href="/open-run" className="hidden text-sm font-semibold text-ink-soft hover:text-ink sm:inline">오픈런</Link>
         <Link href="/my" className="text-sm font-semibold text-ink-soft hover:text-ink">내 챌린지</Link>
         <div className="ml-auto flex items-center gap-2 text-sm">

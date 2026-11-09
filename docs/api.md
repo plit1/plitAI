@@ -67,3 +67,29 @@
 | GET | /admin/exam-rounds/providers | OPERATOR | 출처별 연동 상태 |
 
 관리자 API(@Roles OPERATOR 이상)는 `ADMIN_MFA_REQUIRED=true` 일 때 MFA 세션이 아니면 `403 MFA_REQUIRED`.
+
+## Phase 4 추가 (세션 3)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| POST | /enrollments/:id/quiz | 부스터 | 응시 생성(미제출 응시 재사용), 정답 비노출. 400 EXAM_FINISHED, 404 NO_QUIZ_ITEMS |
+| GET | /quiz-attempts/:id · POST /quiz-attempts/:id/submit `{answers}` | 본인 | 제출 1회. 400 UNANSWERED(details.missing) / INVALID_ANSWER, 409 ALREADY_SUBMITTED |
+| GET | /enrollments/:id/quiz/history | 본인 | |
+| GET/POST/PATCH | /admin/quiz-items | OPERATOR | 과목·정답 범위 검증, 출처 없는 공개 금지 |
+| GET | /enrollments/:id/strategy | 부스터 | 주간 부족분·미션 미리보기·남은 페이스·CLEAR MODE |
+| POST | /enrollments/:id/strategy/apply · /clear-mode | 부스터 | 같은 부족분 재적용 무변경 / D-7 이하만 |
+| POST | /enrollments/:id/coach | 부스터 | `{message, source: AI|RULES, reason?, remainingToday}` |
+| GET | /admin/ai-usage?days | OPERATOR | 모델별 호출·토큰·비용 |
+| GET | /community/posts?category&q&certId&sort&cursor · /community/posts/:id | 공개 | 신고·차단 대상 제외, 조회수 1인 1일 1회 |
+| POST/DELETE | /community/posts(/:id) · /community/posts/:id/comments · /community/comments/:id | 회원 | 텍스트 필터, 1분 3개 |
+| PUT/DELETE | /community/posts/:id/like | 회원 | |
+| POST | /reports `{targetType: POST|COMMENT|CHAT, targetId, reason}` | 회원 | 409 ALREADY_REPORTED |
+| GET/PUT/DELETE | /me/blocks(/:userId) | 회원 | |
+| GET | /admin/reports?status · POST /admin/reports/:id/moderate `{action: hide|restore|dismiss}` | OPERATOR | 감사 로그 |
+| GET | /study-rooms/:id · /messages?before · /posts | 참여자·운영자 | 상태 ACTIVE/READ_ONLY/ARCHIVED |
+| POST | /study-rooms/:id/messages · /posts `{category,title,body,ack?}` | 참여자 | 428 NOTICE_REQUIRED, 403 ROOM_CLOSED, 429 RATE/BURST/COOLDOWN |
+| PATCH | /admin/study-rooms/:id `{closeAt?, autoShare?}` | OPERATOR | |
+| POST | /admin/study-rooms/purge | SUPER_ADMIN | 보관 대상 채팅 삭제(신고분 보존). 서버가 10분마다도 실행 |
+
+### WebSocket `/study-room` (socket.io)
+- 연결: `io(API_ORIGIN + '/study-room', { auth: { token: accessToken } })` — 인증 실패 시 `connect_error: UNAUTHORIZED`
+- `join {roomId}` → ack `{ok, data:{summary, messages}}` / `send {roomId, body}` → ack `{ok, data|code,message}` / 서버 → `message`

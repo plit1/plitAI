@@ -7,7 +7,7 @@ import { Spinner } from './ui';
 
 const NAV = [
   ['/admin', '대시보드·심사'], ['/admin/policy', '정책'], ['/admin/offerings', '챌린지 회차'], ['/admin/exam-rounds', '시험 일정'],
-  ['/admin/open-run', '오픈런'], ['/admin/users', '회원'], ['/admin/orders', '결제'], ['/admin/audit', '감사 로그'],
+  ['/admin/open-run', '오픈런'], ['/admin/quiz-items', '문항'], ['/admin/reports', '신고'], ['/admin/users', '회원'], ['/admin/orders', '결제'], ['/admin/audit', '감사 로그'],
 ];
 
 /** 관리자 레이아웃: 역할 확인 + 메뉴. 실제 권한·MFA 강제는 서버(AuthGuard)가 담당 */

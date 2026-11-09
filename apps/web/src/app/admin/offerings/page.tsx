@@ -33,7 +33,7 @@ export default function Offerings() {
       {list.loading ? <Spinner /> : list.error ? <AdminError message={list.error.message} /> : (
         <div className="card overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-paper text-ink-mute"><tr><th className="p-2">회차</th><th className="p-2">모집 마감</th><th className="p-2">시험일</th><th className="p-2">플릿런</th><th className="p-2">부스터</th><th className="p-2">상태</th></tr></thead>
+            <thead className="bg-paper text-ink-mute"><tr><th className="p-2">회차</th><th className="p-2">모집 마감</th><th className="p-2">시험일</th><th className="p-2">플릿런</th><th className="p-2">부스터</th><th className="p-2">상태</th><th className="p-2">스터디룸</th></tr></thead>
             <tbody>{list.data!.map((o) => (
               <tr key={o.id} className="border-t border-ink-line/60">
                 <td className="p-2"><p className="font-semibold">{o.certName}</p><p className="font-mono text-ink-mute">{o.id}</p></td>
@@ -42,6 +42,7 @@ export default function Offerings() {
                 <td className="p-2"><label className="sr-only" htmlFor={`st-${o.id}`}>{o.id} 상태</label>
                   <select id={`st-${o.id}`} className="rounded border border-ink-line bg-surface p-1" value={o.status} onChange={(e) => { if (window.confirm(`${o.id} 상태를 ${e.target.value} 로 바꿀까요?`)) run(() => api(`/admin/offerings/${o.id}`, { method: 'PATCH', json: { status: e.target.value } }), '상태 변경'); }}>
                     {STATUSES.map((s) => <option key={s}>{s}</option>)}</select> {o.status === 'cancelled' && <Badge tone="risk">취소</Badge>}</td>
+                <td className="p-2"><button className="text-cobalt underline" onClick={() => { const v = window.prompt('스터디룸 종료 일시 (YYYY-MM-DD HH:mm, 비우면 예약 취소). 종료 후 7일 읽기 전용 → 채팅 삭제', ''); if (v === null) return; const closeAt = v.trim() ? new Date(v.trim().replace(' ', 'T') + ':00+09:00').toISOString() : null; run(() => api(`/admin/study-rooms/${o.id}`, { method: 'PATCH', json: { closeAt } }), closeAt ? `${o.id} 스터디룸 종료 예약` : `${o.id} 종료 예약 취소`); }}>종료 설정</button></td>
               </tr>
             ))}</tbody>
           </table>

@@ -11,6 +11,7 @@ interface Item { id: string; examNumber: string; submittedAt: string; note: stri
 export default function Admin() {
   const stats = useApi<Stats>('/admin/stats');
   const queue = useApi<Item[]>('/admin/verifications');
+  const ai = useApi<{ days: number; totalUsd: number; rows: { model: string; success: boolean; calls: number }[] }>('/admin/ai-usage?days=30');
   const [msg, setMsg] = useState<string | null>(null);
   const review = async (id: string, decision: string) => {
     const note = decision === 'NEEDS_FIX' || decision === 'REJECT' ? window.prompt('사유를 입력해주세요') ?? '' : undefined;
@@ -28,6 +29,9 @@ export default function Admin() {
             <div key={k} className="card p-4"><dt className="text-xs text-ink-mute">{k}</dt><dd className="mt-1 font-black">{v}</dd></div>
           ))}
         </dl>
+      )}
+      {ai.data && (
+        <p className="card p-4 text-sm">AI 코칭 (최근 {ai.data.days}일): 호출 {ai.data.rows.reduce((n, r) => n + r.calls, 0)}회 · 실패·폴백 {ai.data.rows.filter((r) => !r.success).reduce((n, r) => n + r.calls, 0)}회 · 비용 약 ${ai.data.totalUsd.toFixed(4)}</p>
       )}
       <section aria-labelledby="q">
         <h2 id="q" className="mb-2 text-lg font-black">합격 인증 심사</h2>

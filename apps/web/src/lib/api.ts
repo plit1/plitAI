@@ -9,6 +9,10 @@ const listeners = new Set<() => void>();
 export const onAuthChange = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 export const setAccessToken = (t: string | null) => { accessToken = t; listeners.forEach((f) => f()); };
 export const hasToken = () => !!accessToken;
+/** socket.io 핸드셰이크용 (메모리 보관 토큰) */
+export const currentToken = () => accessToken;
+/** 실시간 서버 주소: Next 리라이트는 WebSocket 업그레이드를 보장하지 않아 API 오리진에 직접 연결 */
+export const wsOrigin = () => process.env.NEXT_PUBLIC_WS_ORIGIN || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : '');
 
 export async function refresh(): Promise<boolean> {
   refreshing ??= fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'same-origin' })

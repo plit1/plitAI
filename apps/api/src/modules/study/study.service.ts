@@ -151,7 +151,7 @@ export class StudyService {
     const comparison = plan === 'PREMIUM' || !compare.available ? compare : { available: true, sample: compare.sample, average: compare.average, outcome: compare.outcome, topPercent: null, note: '상세 순위는 플릿 부스터 패스에서 볼 수 있어요' };
 
     return {
-      enrollmentId, plan, cert: { id: offering.cert.id, name: offering.cert.name }, round: offering.round, examDate: offering.examDate, daysLeft,
+      enrollmentId, offeringId: offering.id, plan, cert: { id: offering.cert.id, name: offering.cert.name }, round: offering.round, examDate: offering.examDate, daysLeft,
       record: { progress: rec.progress, totalMin: rec.totalMin, weekMin: w.weekMin, streak: rec.streak, lastStudyDate: rec.lastStudyDate, accuracy: rec.accuracy, expectedScore: rec.expectedScore, subjects: rec.subjects, missions: rec.missions, clearModeStarted: rec.clearModeStarted, appliedPlan: rec.appliedPlan },
       recommendedDailyMin: INDEX_DEFAULTS.targetDailyMin,
       index, comparison, openSession: open ? this.view(open) : null,

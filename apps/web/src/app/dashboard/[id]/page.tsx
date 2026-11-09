@@ -1,5 +1,6 @@
 'use client';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api, ApiError, dday } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
@@ -7,6 +8,7 @@ import { Badge, ErrorBox, Spinner } from '@/components/ui';
 
 interface Session { id: string; status: 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'; elapsedSec: number }
 interface Dash {
+  offeringId: string;
   plan: 'FREE' | 'PREMIUM'; cert: { name: string }; round: string; daysLeft: number; recommendedDailyMin: number;
   record: { progress: number; totalMin: number; weekMin: number; streak: number; missions: { id: string; title: string; done: boolean }[]; subjects: { name: string; progress: number }[] };
   index: { label: string; value: number | null; explanation: string[]; disclaimer: string };
@@ -45,6 +47,19 @@ export default function Dashboard() {
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div><Badge tone={d.plan === 'PREMIUM' ? 'cobalt' : 'mute'}>{d.plan === 'PREMIUM' ? '플릿 부스터 패스' : '플릿런'}</Badge><h1 className="mt-1 text-2xl font-black">{d.cert.name}</h1><p className="text-sm text-ink-mute">{d.round} · 시험 {dday(d.daysLeft)}</p></div>
       </header>
+      <nav aria-label="학습 메뉴" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          [`/study-room/${d.offeringId}`, '스터디룸', '함께 공부하는 회차 채팅', false],
+          [`/quiz/${id}`, d.daysLeft > 0 && d.daysLeft <= 7 ? 'FINAL CLEAR TEST' : 'QUICK TEST', '실력 점검 · 취약 과목', d.plan !== 'PREMIUM'],
+          [`/strategy/${id}`, 'AI 학습전략', '오늘 계획 · AI 코칭', d.plan !== 'PREMIUM'],
+          [`/verify/${id}`, '합격 인증', '시험 후 결과 제출', false],
+        ].map(([href, title, sub, locked]) => (
+          <Link key={href as string} href={href as string} className="card block p-3 hover:shadow-md">
+            <p className="text-sm font-bold">{title as string} {locked && <Badge tone="gold">부스터</Badge>}</p>
+            <p className="text-[11px] text-ink-mute">{sub as string}</p>
+          </Link>
+        ))}
+      </nav>
       {toast && <p role="status" className="rounded-xl bg-clear px-4 py-3 text-sm font-bold text-night">{toast}</p>}
 
       <section className="rounded-3xl bg-night p-6 text-white" aria-labelledby="today">

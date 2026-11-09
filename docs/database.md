@@ -39,5 +39,13 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - `OpenRunRequest`(certificationKey UNIQUE = 정규화 이름, interestCount 캐시) · `OpenRunInterest`(requestId, userId) PK
 - 마이그레이션: `20261109125104_phase3_mfa_open_requests`(초안 테이블 포함) → `20261109125519_open_run_requests`(초안 제거·오픈런 모델로 교체, 미배포 상태에서 교체)
 
+## Phase 4 추가
+- `QuizItem`(certId·subject·answer·source·isSample·status) · `QuizAttempt`(itemIds 고정·answers·submittedAt 조건부 갱신)
+- `StudyRecord.appliedPlan`
+- `CommunityPost`(origin COMMUNITY/STUDY_ROOM, roomId, isPublic, 카운터 캐시) · `CommunityComment` · `PostLike`(PK) · `PostView`(postId,userId,day PK)
+- `ContentReport`(reporterId,targetType,targetId UNIQUE) · `UserBlock`
+- `StudyRoom`(=offeringId, closeAt, purgedAt, autoShare) · `ChatMessage` · `ChatHold`(messageId UNIQUE, holdUntil) · `NoticeAck`(userId,version)
+- 마이그레이션 `20261109133517_phase4_quiz_community_studyroom`
+
 ## 이후 추가 예정 테이블 (Phase 4~7)
 StudyRoom/ChatMessage/Report, CommunityPost/Comment/Like, QuizItem/QuizAttempt, Pet, Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, JobPosting 캐시, StartupProgram

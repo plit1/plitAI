@@ -3,9 +3,32 @@
 > 다음 세션은 이 파일 → `development-roadmap.md` → `decisions.md` 순서로 확인.
 
 ## 현재 위치
-- 브랜치: `feature/phase3-member-admin` (develop 에서 분기). 이전: `feature/phase0-2-foundation` (develop 에 반영됨)
+- 브랜치: `feature/phase4-learning-ai-community` (develop 에서 분기). 이전 Phase 브랜치는 develop 에 반영됨
 - GitHub `plit1/plitAI` 에 `develop`, `feature/phase0-2-foundation` push 완료, CI 통과 (API 51/51, web build). 태그 `demo-v2.9-stable` 은 프록시 오류로 push 실패 → 로컬에만 존재 (main@0bf2531 과 동일 커밋)
-- 완료 Phase: 0, 1, 2, **3** / 진행: 5 일부(결제·인증·원장 백엔드 선행)
+- 완료 Phase: 0, 1, 2, 3, **4** / 진행: 5 일부(결제·인증·원장 백엔드 선행)
+
+## 세션 3 (2026-11-09) — Phase 4
+### 완료
+- QUICK TEST: 문항 은행(출처·예시 표시·DRAFT/PUBLISHED), 정답 비노출 출제·1회 제출·서버 채점(데모 z6/F6/dN), D-7 FINAL, 지표 전후·XP·미션, 관리자 문항 관리
+- AI 학습전략·CLEAR MODE: 데모 _x/Cx/G6/bu/V6/hN 규칙 이관
+- AI 코칭(Claude API, `claude-opus-5-5`·effort low·server-side fallback): 서버 계산 사실만 전달, 응답의 숫자·금지 표현 검증 → 실패 시 규칙 문장, 일일 한도, 토큰·비용 기록, 관리자 사용량
+- 커뮤니티: 게시판·댓글·좋아요·조회수·검색·신고·차단·운영 숨김(공용 ModerationService)
+- 스터디룸: socket.io 실시간 채팅(연결 전 인증), 데모 SR_POLICY 서버 강제, 스터디룸 글 → 커뮤니티 단일 원본(공개 고지), 종료 7일 읽기 전용 → 채팅 삭제·신고분 90일 보존·게시글 유지
+- 화면: QUICK TEST, AI 전략, 스터디룸, 커뮤니티(목록·글쓰기·상세), 대시보드 학습 메뉴, 관리자 신고·문항·AI 사용량·스터디룸 종료 설정
+- 버그 수정: DTO 미지정 필드 undefined 덮어쓰기(useDefineForClassFields), 소켓 인증 전 이벤트 처리 경합, AI 일일 한도 NULL 필터 누락, 댓글 입력 접근성 이름 중복
+
+### 기능 상태 (세션 3 변경분)
+| 기능 | 상태 |
+|---|---|
+| QUICK TEST 출제·채점·FINAL | 개발 및 테스트 완료 (예시 20문항뿐 — 실제 문항 은행 구축은 운영 과제) |
+| AI 학습전략·CLEAR MODE | 개발 및 테스트 완료 |
+| AI 코칭 (Claude API) | 개발 완료 / 가짜 클라이언트로 테스트 완료 / **실제 API 호출은 외부 연동 대기** (`ANTHROPIC_API_KEY` 필요, 키 없으면 규칙 기반 문장) |
+| 커뮤니티 | 개발 및 테스트 완료 (첨부파일은 미구현) |
+| 스터디룸 채팅·글·종료/보관 | 개발 및 테스트 완료 (단일 인스턴스) |
+| 스터디룸 다중 서버 확장 | 미구현 — socket.io Redis adapter, 채팅 속도 가드의 Redis 저장소 필요 |
+| 공부 완료 자동 공유(채팅 이벤트) | 미구현 (데모 srShareEvent) |
+| 스터디룸 자료 업로드 | 미구현 (S3 연동과 함께) |
+| 모바일 헤더 메뉴 | 미구현 (커뮤니티는 노출, 오픈런은 sm 이상) |
 
 ## 세션 2 (2026-11-09) — Phase 3
 ### 완료
@@ -66,9 +89,9 @@
 | CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. `feature/phase3-member-admin` → `develop` 반영 (CI 확인 후)
-2. Phase 4: QUICK TEST 문항 은행·채점(서버), AI 학습전략(Claude API — 응답 생성과 지표 계산 분리, 사용량 한도·비용 로그), CLEAR MODE
-3. Phase 4: 스터디룸 실시간(socket.io + Redis adapter, 공통 text-filter 재사용, 신고·제재), 커뮤니티(스터디룸 글 자동 노출)
-4. 모바일 내비게이션 메뉴, 관리자 회차 전체 상태 조회 API
-5. 외부 키 도착 시: 토스 테스트키 결제위젯, 소셜 로그인 실연동, data.go.kr 접근 허용 후 큐넷 어댑터
+1. `feature/phase4-learning-ai-community` → `develop` 반영 (CI 확인 후)
+2. Phase 5 마무리: 토스 결제위젯(테스트 키 도착 시), 증빙 S3 저장, 포인트 만료, 정산·매출 리포트
+3. Phase 6: 게이미피케이션(펫 상태·WIN/DRAW/LOSE·배지), 취업(고용24 프록시 — 키·접근 필요), 창업 정보
+4. 스터디룸 확장: Redis adapter + Redis 기반 속도 가드, 공부 완료 공유 이벤트, 자료 업로드
+5. 모바일 내비게이션 메뉴
 6. 정리: E2E 가 만든 `plit_e2e_*` DB (자동 삭제 안 함)
