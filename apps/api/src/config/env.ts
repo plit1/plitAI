@@ -11,6 +11,10 @@ export class Env {
   @IsString() JWT_ACCESS_TTL = '15m';
   @Transform(({ value }) => Number(value)) @IsInt() REFRESH_TTL_DAYS = 30;
 
+  /** 미설정 시 production·staging 은 true, 그 외 false */
+  @IsOptional() @Transform(({ value }) => value === true || value === 'true') @IsBoolean() ADMIN_MFA_REQUIRED?: boolean;
+  @IsOptional() @IsString() MFA_ENC_KEY?: string;
+
   @IsIn(['MOCK', 'TOSS']) PAYMENT_PROVIDER: 'MOCK' | 'TOSS' = 'MOCK';
   @IsOptional() @IsString() TOSS_SECRET_KEY?: string;
   @IsOptional() @IsString() TOSS_CLIENT_KEY?: string;
@@ -38,6 +42,9 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   if (errors.length) {
     throw new Error('환경변수 오류:\n' + errors.map((e) => ` - ${e.property}: ${Object.values(e.constraints ?? {}).join(', ')}`).join('\n'));
   }
+  env.ADMIN_MFA_REQUIRED ??= env.NODE_ENV === 'production' || env.NODE_ENV === 'staging';
+  if (env.NODE_ENV === 'production' && !env.ADMIN_MFA_REQUIRED) throw new Error('운영 환경에서 관리자 MFA 를 끌 수 없습니다.');
+  if (env.NODE_ENV === 'production' && !env.MFA_ENC_KEY) throw new Error('운영 환경에는 MFA_ENC_KEY 가 필요합니다.');
   if (env.NODE_ENV === 'production') {
     if (env.JWT_ACCESS_SECRET.startsWith('change-me')) throw new Error('운영 환경에서 기본 JWT 시크릿을 사용할 수 없습니다.');
     if (env.PAYMENT_PROVIDER === 'MOCK') throw new Error('운영 환경에서는 MOCK 결제를 사용할 수 없습니다.');

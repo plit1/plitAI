@@ -7,7 +7,8 @@ import type { Request, Response } from 'express';
 import { AuthUser, CurrentUser, Public } from '../../common/auth.decorators';
 import { AppError } from '../../common/errors';
 import { limit } from '../../common/throttle';
-import { LoginDto, PasswordResetConfirmDto, PasswordResetRequestDto, SignupDto } from './auth.dto';
+import { LoginDto, MfaCodeDto, MfaLoginDto, PasswordResetConfirmDto, PasswordResetRequestDto, SignupDto } from './auth.dto';
+import { MfaService } from './mfa.service';
 import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
 import { IssuedTokens, TokenService } from './token.service';
@@ -17,7 +18,7 @@ export const REFRESH_COOKIE = 'plit_rt';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService, private readonly tokens: TokenService, private readonly oauth: OAuthService, private readonly config: ConfigService) {}
+  constructor(private readonly auth: AuthService, private readonly tokens: TokenService, private readonly oauth: OAuthService, private readonly config: ConfigService, private readonly mfa: MfaService) {}
 
   private meta(req: Request) { return { ua: req.headers['user-agent'], ip: req.ip }; }
 
@@ -40,8 +41,24 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = await this.auth.validateLogin(dto.email, dto.password);
+    // 2단계 인증 사용자: 토큰 대신 5분짜리 단계 토큰만 발급
+    if (user.mfaEnabledAt) return { mfaRequired: true, mfaToken: await this.mfa.issueStepToken(user.id) };
     return this.respond(res, await this.tokens.issue(user, this.meta(req)), user);
   }
+
+  @Public() @Throttle({ default: { limit: limit(10), ttl: 60_000 } }) @HttpCode(200)
+  @Post('login/mfa')
+  async loginMfa(@Body() dto: MfaLoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const user = await this.mfa.verifyStep(dto.mfaToken, dto.code);
+    return this.respond(res, await this.tokens.issue(user, this.meta(req), { mfa: true }), user);
+  }
+
+  @Get('mfa') mfaStatus(@CurrentUser() u: AuthUser) { return this.mfa.status(u.id); }
+  @Post('mfa/enroll') mfaEnroll(@CurrentUser() u: AuthUser) { return this.mfa.beginEnroll(u.id); }
+  @Throttle({ default: { limit: limit(10), ttl: 60_000 } }) @HttpCode(200)
+  @Post('mfa/confirm') mfaConfirm(@CurrentUser() u: AuthUser, @Body() dto: MfaCodeDto) { return this.mfa.confirmEnroll(u.id, dto.code); }
+  @Throttle({ default: { limit: limit(10), ttl: 60_000 } }) @HttpCode(200)
+  @Post('mfa/disable') mfaDisable(@CurrentUser() u: AuthUser, @Body() dto: MfaCodeDto) { return this.mfa.disable(u.id, dto.code); }
 
   @Public() @HttpCode(200)
   @Post('refresh')
@@ -97,6 +114,10 @@ export class AuthController {
       const s = await this.oauth.verifyState(p, state);
       const profile = await this.oauth.exchange(p, code, state);
       const { user } = await this.auth.loginWithIdentity(p, profile, s.consents);
+      if (user.mfaEnabledAt) {
+        const mfaToken = await this.mfa.issueStepToken(user.id);
+        return res.redirect(302, `${origin}/login/mfa#token=${encodeURIComponent(mfaToken)}&next=${encodeURIComponent(s.redirect)}`);
+      }
       const t = await this.tokens.issue(user, this.meta(req));
       this.respond(res, t, user);
       res.redirect(302, `${origin}/auth/callback?next=${encodeURIComponent(s.redirect)}`);

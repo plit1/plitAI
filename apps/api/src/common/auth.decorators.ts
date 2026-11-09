@@ -1,7 +1,7 @@
 import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
-export interface AuthUser { id: string; role: UserRole; }
+export interface AuthUser { id: string; role: UserRole; mfa?: boolean; }
 export const IS_PUBLIC = 'isPublic';
 export const ROLES = 'roles';
 /** 로그인 없이 접근 가능한 엔드포인트 */

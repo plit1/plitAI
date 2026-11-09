@@ -23,3 +23,6 @@ export class PasswordResetConfirmDto {
   @ApiProperty() @IsString() @Length(20, 200) token: string;
   @ApiProperty() @Matches(PASSWORD_RULE, { message: '비밀번호는 영문과 숫자를 포함해 8자 이상이어야 해요.' }) password: string;
 }
+
+export class MfaCodeDto { @ApiProperty({ example: '123456' }) @Matches(/^\d{6}$/, { message: '6자리 숫자를 입력해주세요.' }) code: string; }
+export class MfaLoginDto extends MfaCodeDto { @ApiProperty() @IsString() @Length(20, 2000) mfaToken: string; }

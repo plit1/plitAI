@@ -16,11 +16,14 @@ export class TokenService {
 
   private refreshTtlMs() { return Number(this.config.get('REFRESH_TTL_DAYS') ?? 30) * 86400000; }
 
-  async issue(user: { id: string; role: UserRole }, meta: { ua?: string; ip?: string }, familyId: string = randomUUID()): Promise<IssuedTokens> {
-    const accessToken = await this.jwt.signAsync({ sub: user.id, role: user.role });
+  async issue(user: { id: string; role: UserRole }, meta: { ua?: string; ip?: string }, opts: { familyId?: string; mfa?: boolean } = {}): Promise<IssuedTokens> {
+    const familyId = opts.familyId ?? randomUUID();
+    const mfa = !!opts.mfa;
+    // typ 로 access 토큰임을 명시 — 같은 키로 서명된 OAuth state·MFA 단계 토큰을 Bearer 로 쓰지 못하게 함
+    const accessToken = await this.jwt.signAsync({ sub: user.id, role: user.role, typ: 'access', mfa });
     const refreshToken = randomToken(48);
     const refreshExpiresAt = new Date(Date.now() + this.refreshTtlMs());
-    await this.prisma.refreshToken.create({ data: { userId: user.id, tokenHash: sha256(refreshToken), familyId, expiresAt: refreshExpiresAt, userAgent: meta.ua?.slice(0, 255), ip: meta.ip } });
+    await this.prisma.refreshToken.create({ data: { userId: user.id, tokenHash: sha256(refreshToken), familyId, mfa, expiresAt: refreshExpiresAt, userAgent: meta.ua?.slice(0, 255), ip: meta.ip } });
     return { accessToken, refreshToken, refreshExpiresAt };
   }
 
@@ -37,7 +40,7 @@ export class TokenService {
     // 조건부 업데이트로 동시 회전 경합 방지
     const { count } = await this.prisma.refreshToken.updateMany({ where: { id: row.id, revokedAt: null }, data: { revokedAt: new Date() } });
     if (count === 0) throw invalid;
-    const next = await this.issue(row.user, meta, row.familyId);
+    const next = await this.issue(row.user, meta, { familyId: row.familyId, mfa: row.mfa });
     await this.prisma.refreshToken.update({ where: { id: row.id }, data: { replacedBy: sha256(next.refreshToken) } });
     return next;
   }

@@ -12,6 +12,7 @@ import { PointsService } from '../points/points.service';
 import { FEATURES, PolicyValues } from '../policy/policy.defaults';
 import { PolicyService } from '../policy/policy.service';
 import { AuditService } from './audit.service';
+import { MfaService } from '../auth/mfa.service';
 
 class UserQuery { @ApiPropertyOptional() @IsOptional() @IsString() q?: string; }
 class RoleDto { @ApiProperty({ enum: UserRole }) @IsEnum(UserRole) role: UserRole; }
@@ -49,7 +50,7 @@ class OfferingPatchDto {
 @Roles('OPERATOR')
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly points: PointsService, private readonly payments: PaymentsService, private readonly policy: PolicyService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly points: PointsService, private readonly payments: PaymentsService, private readonly policy: PolicyService, private readonly mfa: MfaService) {}
 
   @Get('stats')
   async stats() {
@@ -99,6 +100,15 @@ export class AdminController {
       await this.audit.log(tx, { actorId: a.id, action: 'USER_STATUS', targetType: 'User', targetId: id, before: { status: before.status }, after: { status: dto.status, reason: dto.reason }, ip: req.ip });
       return { id, status: dto.status };
     });
+  }
+
+  /** OTP 기기 분실 시 초기화 — 본인 초기화 금지, 감사 로그 */
+  @Roles('SUPER_ADMIN') @Post('users/:id/mfa/reset')
+  async resetMfa(@CurrentUser() a: AuthUser, @Param('id') id: string, @Body() dto: RefundDto, @Req() req: Request) {
+    if (id === a.id) throw new AppError('SELF_MFA_RESET', '본인 2단계 인증은 다른 최고 관리자가 초기화해야 해요.');
+    const r = await this.mfa.adminReset(id);
+    await this.prisma.$transaction((tx) => this.audit.log(tx, { actorId: a.id, action: 'USER_MFA_RESET', targetType: 'User', targetId: id, before: { mfa: r.wasEnabled }, after: { mfa: false, reason: dto.reason }, ip: req.ip }));
+    return { ok: true };
   }
 
   @Get('orders')

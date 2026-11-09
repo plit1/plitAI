@@ -45,7 +45,9 @@ model User {
   status        UserStatus @default(ACTIVE)
   referralCode  String     @unique
   referredById  String?
-  mfaSecret     String? // 관리자 TOTP (Phase 3+)
+  mfaSecret     String? // TOTP 시크릿 (AES-256-GCM 암호문)
+  mfaEnabledAt  DateTime? // null 이면 미활성 (등록 중)
+  mfaLastStep   Int? // 마지막으로 사용된 TOTP 시간 단계 (재사용 방지)
   isTest        Boolean    @default(false)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -67,6 +69,7 @@ model User {
   verifications  PassVerification[]
   pointAccount   PointAccount?
   auditLogs      AdminAuditLog[]     @relation("AuditActor")
+  openRequests   ChallengeOpenRequest[]
   aiUsage        AiUsageLog[]
 
   @@index([status])
@@ -92,6 +95,7 @@ model RefreshToken {
   userId     String
   tokenHash  String    @unique
   familyId   String // 재사용 탐지 시 동일 family 전체 폐기
+  mfa        Boolean   @default(false) // MFA 로 시작된 세션이면 회전 후에도 유지
   expiresAt  DateTime
   revokedAt  DateTime?
   replacedBy String?
@@ -164,9 +168,10 @@ model Certification {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  offerings  ChallengeOffering[]
-  favorites  FavoriteCertification[]
-  examRounds ExamRound[]
+  offerings    ChallengeOffering[]
+  favorites    FavoriteCertification[]
+  examRounds   ExamRound[]
+  openRequests ChallengeOpenRequest[]
 
   @@index([field])
   @@index([qualType])
@@ -537,4 +542,31 @@ model AdminAuditLog {
 
   @@index([targetType, targetId])
   @@index([actorId, createdAt])
+}
+
+// ───────────────────────── 챌린지 개설 요청 (오픈런) ─────────────────────────
+
+enum OpenRequestStatus {
+  PENDING
+  PLANNED // 개설 예정 (운영 검토 완료)
+  OPENED // 회차 개설됨
+  DECLINED
+}
+
+/// 회차가 없거나 마감된 자격증에 대한 개설 요청 + 오픈 알림 신청. 1인 1자격증 1건.
+model ChallengeOpenRequest {
+  id         String            @id @default(cuid())
+  userId     String
+  certId     String
+  message    String? // 필터 통과한 짧은 의견
+  notify     Boolean           @default(true) // 회차 개설 시 알림
+  status     OpenRequestStatus @default(PENDING)
+  offeringId String? // 개설된 회차
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cert       Certification     @relation(fields: [certId], references: [id])
+
+  @@unique([userId, certId])
+  @@index([certId, status])
 }
