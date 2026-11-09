@@ -86,6 +86,9 @@ resource "aws_ecs_task_definition" "api" {
       { name = "APP_ORIGIN", value = "https://staging.${var.domain}" },
       { name = "PAYMENT_PROVIDER", value = "TOSS" },
       { name = "REWARDS_LIVE", value = "false" },
+      { name = "STORAGE_DRIVER", value = "s3" },
+      { name = "S3_UPLOAD_BUCKET", value = aws_s3_bucket.uploads.bucket },
+      { name = "AWS_REGION", value = var.region },
       { name = "DB_HOST", value = aws_db_instance.postgres.address },
     ]
     secrets = [

@@ -22,11 +22,15 @@ export class VerificationsService {
   constructor(private readonly prisma: PrismaService, private readonly entitlements: EntitlementService, private readonly points: PointsService, private readonly audit: AuditService) {}
 
   /** 공식 개인 합격조회 API 가 확인되지 않아 자동 검증을 가정하지 않는다 → 증빙 + 관리자 심사 */
-  async submit(userId: string, enrollmentId: string, input: { examNumber: string; evidenceKey: string }) {
+  async submit(userId: string, enrollmentId: string, input: { examNumber: string; evidenceKey: string; examRoundId?: string }) {
     const { enrollment } = await this.entitlements.require(userId, enrollmentId, 'VERIFICATION');
     const offering = await this.prisma.challengeOffering.findUniqueOrThrow({ where: { id: enrollment.offeringId } });
     if (daysBetween(new Date(), offering.examDate) > 0) throw new AppError('EXAM_NOT_FINISHED', '시험 종료 후 제출할 수 있어요.');
     if (!input.evidenceKey.startsWith(`evidence/${userId}/`)) throw new AppError('INVALID_EVIDENCE', '증빙 파일을 다시 올려주세요.');
+    if (input.examRoundId) {
+      const round = await this.prisma.examRound.findUnique({ where: { id: input.examRoundId } });
+      if (!round || round.certId !== enrollment.certId) throw new AppError('INVALID_EXAM_ROUND', '이 자격증의 시험 회차를 선택해주세요.');
+    }
     const masked = maskExamNumber(input.examNumber);
     const existing = await this.prisma.passVerification.findUnique({ where: { enrollmentId } });
     if (existing && LOCKED.includes(existing.status)) throw Conflict('ALREADY_SUBMITTED', '이미 제출된 결과예요.');
@@ -36,7 +40,7 @@ export class VerificationsService {
     });
     const note = dup ? '[자동 표시] 같은 회차에 끝자리가 같은 수험번호가 있어요 — 심사 시 확인 필요' : null;
 
-    const data = { examNumber: masked, evidenceKey: input.evidenceKey, status: 'REVIEWING' as const, note, submittedAt: new Date(), reviewerId: null, reviewedAt: null };
+    const data = { examNumber: masked, evidenceKey: input.evidenceKey, examRoundId: input.examRoundId ?? null, status: 'REVIEWING' as const, note, submittedAt: new Date(), reviewerId: null, reviewedAt: null };
     const v = existing
       ? await this.prisma.passVerification.update({ where: { id: existing.id }, data })
       : await this.prisma.passVerification.create({ data: { ...data, enrollmentId, userId } });
@@ -58,11 +62,24 @@ export class VerificationsService {
     return { id: v.id, status: v.status, examNumber: v.examNumber, note: v.status === 'NEEDS_FIX' || v.status === 'REJECTED' ? v.note : null, submittedAt: v.submittedAt, reviewedAt: v.reviewedAt };
   }
 
-  queue(status: VerificationStatus = 'REVIEWING') {
-    return this.prisma.passVerification.findMany({
+  /** 심사자 증빙 열람: 개인정보 접근이므로 열람마다 감사 로그 */
+  async evidenceFor(adminId: string, verificationId: string, read: (key: string) => Promise<{ body: Buffer; contentType: string } | null>, ip?: string) {
+    const v = await this.prisma.passVerification.findUnique({ where: { id: verificationId } });
+    if (!v || !v.evidenceKey) throw NotFound('증빙');
+    const file = await read(v.evidenceKey);
+    if (!file) throw NotFound('증빙 파일');
+    await this.prisma.$transaction((tx) => this.audit.log(tx, { actorId: adminId, action: 'EVIDENCE_VIEW', targetType: 'PassVerification', targetId: v.id, after: { key: v.evidenceKey }, ip }));
+    return file;
+  }
+
+  async queue(status: VerificationStatus = 'REVIEWING') {
+    const rows = await this.prisma.passVerification.findMany({
       where: { status }, orderBy: { submittedAt: 'asc' }, take: 100,
       include: { user: { select: { id: true, nickname: true } }, enrollment: { select: { plan: true, certId: true, offeringId: true, rewardSnapshot: true } } },
     });
+    const roundIds = rows.map((r) => r.examRoundId).filter((x): x is string => !!x);
+    const rounds = new Map((roundIds.length ? await this.prisma.examRound.findMany({ where: { id: { in: roundIds } } }) : []).map((r) => [r.id, r]));
+    return rows.map((r) => ({ ...r, hasEvidence: !!r.evidenceKey, examRound: r.examRoundId ? { label: rounds.get(r.examRoundId)?.label ?? null, resultDate: rounds.get(r.examRoundId)?.resultDate ?? null } : null }));
   }
 
   /**

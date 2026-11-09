@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { AppError } from '../../common/errors';
+import { OBJECT_STORAGE, ObjectStorage } from '../../common/storage/storage';
 
 export const EVIDENCE_MAX_BYTES = 10 * 1024 * 1024;
 /** 확장자·Content-Type 이 아니라 파일 시그니처(매직 바이트)로 판별 */
@@ -13,17 +12,17 @@ export function sniffType(buf: Buffer): 'image/jpeg' | 'image/png' | 'applicatio
   return null;
 }
 
-/** 증빙 저장소. 개발: 로컬 디스크(비공개 경로) / 운영: S3 비공개 버킷 + SSE-KMS (Phase 8에서 교체) */
+/** 증빙 저장소: 형식·크기 검사 후 비공개 저장소(로컬/S3)에 보관 */
 @Injectable()
 export class EvidenceStorage {
-  private readonly dir = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads', 'evidence');
+  constructor(@Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage) {}
   async save(userId: string, buf: Buffer): Promise<{ key: string; type: string }> {
     if (buf.length === 0 || buf.length > EVIDENCE_MAX_BYTES) throw new AppError('FILE_SIZE', '10MB 이하 파일만 올릴 수 있어요.');
     const type = sniffType(buf);
     if (!type) throw new AppError('FILE_TYPE', 'JPG, PNG, PDF 파일만 올릴 수 있어요.');
     const key = `evidence/${userId}/${randomUUID()}.${type === 'application/pdf' ? 'pdf' : type.split('/')[1]}`;
-    await mkdir(join(this.dir, userId), { recursive: true });
-    await writeFile(join(this.dir, key.replace('evidence/', '')), buf, { mode: 0o600 });
+    await this.storage.put(key, buf, type);
     return { key, type };
   }
+  read(key: string) { return this.storage.get(key); }
 }

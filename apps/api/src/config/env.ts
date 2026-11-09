@@ -30,6 +30,10 @@ export class Env {
   @IsString() OAUTH_REDIRECT_BASE = 'http://localhost:4000/api/v1/auth/oauth';
 
   @IsOptional() @IsString() QNET_SERVICE_KEY?: string;
+  @IsOptional() @IsIn(['local', 's3']) STORAGE_DRIVER?: 'local' | 's3';
+  @IsOptional() @IsString() S3_UPLOAD_BUCKET?: string;
+  @IsOptional() @IsString() S3_KMS_KEY_ID?: string;
+  @IsOptional() @IsString() AWS_REGION?: string;
   @IsOptional() @IsString() ANTHROPIC_API_KEY?: string;
   @IsString() AI_MODEL = 'claude-opus-5-5';
   @Transform(({ value }) => Number(value)) @IsInt() AI_DAILY_LIMIT_FREE = 3;
@@ -50,6 +54,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     if (env.JWT_ACCESS_SECRET.startsWith('change-me')) throw new Error('운영 환경에서 기본 JWT 시크릿을 사용할 수 없습니다.');
     if (env.PAYMENT_PROVIDER === 'MOCK') throw new Error('운영 환경에서는 MOCK 결제를 사용할 수 없습니다.');
   }
+  if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER !== 's3') throw new Error('운영 환경 개인정보 파일은 S3(STORAGE_DRIVER=s3)에 저장해야 합니다.');
   if (env.PAYMENT_PROVIDER === 'TOSS' && !env.TOSS_SECRET_KEY) throw new Error('PAYMENT_PROVIDER=TOSS 인데 TOSS_SECRET_KEY 가 없습니다.');
   return env;
 }

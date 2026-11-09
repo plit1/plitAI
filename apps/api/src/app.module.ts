@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { AuthGuard } from './common/auth.guard';
 import { AllExceptionsFilter } from './common/http-exception.filter';
 import { PrismaModule } from './common/prisma.service';
+import { StorageModule } from './common/storage/storage.module';
 import { validateEnv } from './config/env';
 import { limit } from './common/throttle';
 import { AdminModule } from './modules/admin/admin.module';
@@ -43,7 +44,7 @@ import { VerificationsModule } from './modules/verifications/verifications.modul
     }),
     JwtModule.registerAsync({ global: true, useFactory: () => ({ secret: process.env.JWT_ACCESS_SECRET, signOptions: { expiresIn: (process.env.JWT_ACCESS_TTL || '15m') as any } }) }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: limit(120) }]),
-    PrismaModule, AuditModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
+    PrismaModule, StorageModule, AuditModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
     CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule, StrategyModule, CommunityModule, StudyRoomModule,
   ],
   controllers: [HealthController],
