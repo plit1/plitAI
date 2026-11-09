@@ -1,0 +1,15 @@
+{
+  "name": "plit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PLIT(플릿) 정식 상용 플랫폼 모노레포",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev:api": "pnpm --filter @plit/api start:dev",
+    "dev:web": "pnpm --filter @plit/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

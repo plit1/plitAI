@@ -1,0 +1,540 @@
+// PLIT 정식 서비스 DB 스키마
+// 원칙
+//  - 금액은 원(KRW) 정수, 포인트는 P 정수. 부동소수 사용 금지.
+//  - 포인트/XP는 append-only 원장. 잔액은 원장 합계(+캐시 컬럼은 같은 트랜잭션에서만 갱신).
+//  - 경제적 가치 이벤트는 dedupeKey 유니크로 멱등성 보장.
+//  - 테스트 데이터는 isTest=true 로 표시해 집계·정산에서 제외.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── 회원 · 인증 ─────────────────────────
+
+enum UserRole {
+  USER
+  OPERATOR // 일반 운영자: 심사·커뮤니티 관리
+  SUPER_ADMIN // 최고 관리자: 정책·환불·포인트 수동 지급
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN // 탈퇴(개인정보 익명화 완료)
+}
+
+enum AuthProvider {
+  EMAIL
+  KAKAO
+  NAVER
+  GOOGLE
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String?    @unique // 탈퇴 시 null 처리
+  emailVerified Boolean    @default(false)
+  passwordHash  String?
+  nickname      String
+  role          UserRole   @default(USER)
+  status        UserStatus @default(ACTIVE)
+  referralCode  String     @unique
+  referredById  String?
+  mfaSecret     String? // 관리자 TOTP (Phase 3+)
+  isTest        Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  withdrawnAt   DateTime?
+
+  referredBy     User?               @relation("Referral", fields: [referredById], references: [id])
+  referrals      User[]              @relation("Referral")
+  identities     AuthIdentity[]
+  refreshTokens  RefreshToken[]
+  resetTokens    PasswordResetToken[]
+  consents       UserConsent[]
+  favorites      FavoriteCertification[]
+  enrollments    Enrollment[]
+  passes         BoosterPass[]
+  orders         Order[]
+  pointEntries   PointLedgerEntry[]  @relation("PointOwner")
+  xpEntries      XpLedgerEntry[]
+  studySessions  StudySession[]
+  verifications  PassVerification[]
+  pointAccount   PointAccount?
+  auditLogs      AdminAuditLog[]     @relation("AuditActor")
+  aiUsage        AiUsageLog[]
+
+  @@index([status])
+}
+
+/// 소셜 로그인 계정 연결. (provider, providerUserId) 유일 → 중복 가입 방지
+model AuthIdentity {
+  id             String       @id @default(cuid())
+  userId         String
+  provider       AuthProvider
+  providerUserId String
+  email          String?
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+/// 회전식 refresh 토큰. 원문은 저장하지 않고 SHA-256 해시만 저장.
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  familyId   String // 재사용 탐지 시 동일 family 전체 폐기
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ConsentType {
+  TERMS // 이용약관 (필수)
+  PRIVACY // 개인정보 수집·이용 (필수)
+  AGE_14 // 만 14세 이상 (필수)
+  MARKETING // 마케팅 수신 (선택)
+  STUDY_DATA_ANALYTICS // 학습 데이터 비교 분석 (선택)
+}
+
+/// 동의 이력 (철회도 새 행으로 기록 — 이력 보존)
+model UserConsent {
+  id        String      @id @default(cuid())
+  userId    String
+  type      ConsentType
+  version   String
+  agreed    Boolean
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+// ───────────────────────── 자격증 ─────────────────────────
+
+enum ChallengeType {
+  exam
+  edu_exam
+  completion
+  score
+}
+
+model Certification {
+  id            String        @id // 데모와 동일한 slug ID (예: industrial-safety)
+  name          String
+  field         String // care, beauty, food, life, office, edu, biz, lang
+  qualType      String // 국가기술, 국가전문, 국가자격, 국가공인 민간, 민간, 국가공인, 어학
+  challengeType ChallengeType
+  issuer        String
+  difficulty    Int
+  tagline       String
+  passRule      String
+  subjects      String[]
+  description   String?
+  relatedJobs   String[]      @default([])
+  qnetJmCd      String? // 큐넷 종목코드 (시험일정 API 연동 키)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  offerings  ChallengeOffering[]
+  favorites  FavoriteCertification[]
+  examRounds ExamRound[]
+
+  @@index([field])
+  @@index([qualType])
+}
+
+/// 공식 시험 회차 (큐넷/공공데이터 동기화 대상)
+model ExamRound {
+  id              String        @id @default(cuid())
+  certId          String
+  label           String // 예: 2027년 1회
+  applyStart      DateTime?
+  applyEnd        DateTime?
+  examDate        DateTime
+  resultDate      DateTime?
+  source          String        @default("MANUAL") // MANUAL | QNET_API
+  sourceUpdatedAt DateTime?
+  cert            Certification @relation(fields: [certId], references: [id])
+
+  @@unique([certId, label])
+}
+
+model FavoriteCertification {
+  userId    String
+  certId    String
+  notify    Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cert      Certification @relation(fields: [certId], references: [id])
+
+  @@id([userId, certId])
+}
+
+// ───────────────────────── 챌린지 ─────────────────────────
+
+enum OfferingStatus {
+  draft
+  open
+  closed // 모집 마감
+  running
+  ended
+  cancelled
+}
+
+enum Plan {
+  FREE // 플릿런 (TOGETHER_RUN)
+  PREMIUM // 플릿 부스터 패스 (BOOSTER_RUN)
+}
+
+/// 챌린지 회차. 데모의 offering 과 1:1 대응 (id 형식 `{certId}-{yyyy}-{n}`)
+model ChallengeOffering {
+  id             String         @id
+  certId         String
+  round          String
+  recruitEnd     DateTime
+  examDate       DateTime
+  durationDays   Int
+  freeCap        Int            @default(300)
+  premiumCap     Int            @default(300)
+  freeJoined     Int            @default(0) // 정원 카운터 (트랜잭션 내 조건부 증가)
+  premiumJoined  Int            @default(0)
+  status         OfferingStatus @default(open)
+  hidden         Boolean        @default(false)
+  popularity     Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  cert        Certification @relation(fields: [certId], references: [id])
+  enrollments Enrollment[]
+  passes      BoosterPass[]
+  orders      Order[]
+
+  @@index([certId])
+  @@index([status, recruitEnd])
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+model Enrollment {
+  id             String           @id @default(cuid())
+  userId         String
+  offeringId     String
+  certId         String
+  plan           Plan
+  status         EnrollmentStatus @default(ACTIVE)
+  policyVersion  String
+  rewardSnapshot Int // 참여 시점 합격 보상 (정책 변경 소급 금지)
+  passId         String?          @unique
+  referralCode   String?
+  joinedAt       DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id])
+  offering     ChallengeOffering   @relation(fields: [offeringId], references: [id])
+  pass         BoosterPass?        @relation(fields: [passId], references: [id])
+  record       StudyRecord?
+  verification PassVerification?
+  planHistory  EnrollmentPlanChange[]
+
+  @@unique([userId, offeringId]) // 동일 회차 중복 참여 금지
+  @@index([offeringId, plan])
+}
+
+model EnrollmentPlanChange {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  fromPlan     Plan
+  toPlan       Plan
+  reason       String
+  createdAt    DateTime   @default(now())
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────── 학습 · AI ─────────────────────────
+
+/// 참여자별 학습 기록 집계 (데모 record 와 대응). 원천은 StudySession.
+model StudyRecord {
+  id               String     @id @default(cuid())
+  enrollmentId     String     @unique
+  userId           String
+  progress         Float      @default(0)
+  totalMin         Int        @default(0)
+  streak           Int        @default(0)
+  lastStudyDate    String? // Asia/Seoul 기준 YYYY-MM-DD
+  accuracy         Int?
+  expectedScore    Int?
+  subjects         Json // [{name, accuracy, progress}]
+  missions         Json // [{id,title,minutes,done,priority}]
+  clearModeStarted Boolean    @default(false)
+  updatedAt        DateTime   @updatedAt
+  enrollment       Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+}
+
+enum StudySessionStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  INVALID // 상한 초과 등 비정상 → 집계 제외
+}
+
+model StudySession {
+  id           String             @id @default(cuid())
+  userId       String
+  enrollmentId String
+  status       StudySessionStatus @default(RUNNING)
+  startedAt    DateTime           @default(now())
+  resumedAt    DateTime? // 마지막 재개 시각 (RUNNING 구간 계산용)
+  elapsedSec   Int                @default(0) // 일시정지 시점까지 누적
+  endedAt      DateTime?
+  minutes      Int? // 확정 반영 분
+  createdAt    DateTime           @default(now())
+  user         User               @relation(fields: [userId], references: [id])
+
+  @@index([enrollmentId, status])
+  @@index([userId, startedAt])
+}
+
+model AiUsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  feature      String // STRATEGY | ROADMAP | ANALYSIS ...
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costMicroUsd Int      @default(0)
+  success      Boolean
+  errorCode    String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────── 상품 · 결제 ─────────────────────────
+
+/// 관리자 변경 가능 정책 (가격·보상·환불기간·XP 등). 변경 시 새 버전 행 추가.
+model PolicyVersion {
+  id        String   @id // 예: 2026-10-v2.2
+  values    Json // { passPrice, togetherReward, boosterReward, refundDays, ... }
+  isCurrent Boolean  @default(false)
+  createdBy String?
+  createdAt DateTime @default(now())
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED // 미승인 상태에서 만료/취소
+  FAILED
+  REFUNDED
+  PARTIAL_REFUNDED
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNo       String      @unique // PG 에 전달하는 orderId
+  userId        String
+  productCode   String // AI_BOOSTER_PASS
+  productName   String
+  offeringId    String
+  certId        String
+  amount        Int // 서버가 정책에서 계산한 금액 (클라이언트 값 신뢰 금지)
+  vatIncluded   Boolean     @default(true)
+  policyVersion String
+  status        OrderStatus @default(PENDING)
+  pgProvider    String // TOSS | MOCK
+  paymentKey    String?     @unique // PG 결제키 (승인 후)
+  method        String?
+  approvedAt    DateTime?
+  refundedAmount Int        @default(0)
+  failReason    String?
+  isTest        Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id])
+  offering ChallengeOffering @relation(fields: [offeringId], references: [id])
+  events   PaymentEvent[]
+  pass     BoosterPass?
+
+  @@index([userId, status])
+  @@index([offeringId, status])
+}
+
+/// PG 이벤트(승인 응답·웹훅) 원문 보관 + eventKey 유니크로 멱등 처리
+model PaymentEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  eventKey  String   @unique
+  type      String // CONFIRM_REQUEST | CONFIRMED | FAILED | CANCEL | WEBHOOK
+  payload   Json
+  createdAt DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+enum PassStatus {
+  ACTIVE
+  REVOKED // 환불 등으로 회수
+  EXPIRED
+}
+
+/// 시험 회차당 1회 구매하는 부스터 패스(이용권)
+model BoosterPass {
+  id         String            @id @default(cuid())
+  userId     String
+  certId     String
+  offeringId String
+  orderId    String?           @unique
+  source     String            @default("PAYMENT") // PAYMENT | ADMIN_GRANT
+  status     PassStatus        @default(ACTIVE)
+  startAt    DateTime          @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime          @default(now())
+
+  user       User              @relation(fields: [userId], references: [id])
+  offering   ChallengeOffering @relation(fields: [offeringId], references: [id])
+  order      Order?            @relation(fields: [orderId], references: [id])
+  enrollment Enrollment?
+
+  @@index([userId, offeringId, status])
+}
+
+// ───────────────────────── 포인트 · XP ─────────────────────────
+
+enum PointEntryType {
+  EARN // 적립 (가입축하·합격보상·초대보상)
+  SPEND // 사용 (포인트몰)
+  REVERSAL // 취소 역분개
+  EXPIRE // 만료
+  ADJUST // 관리자 조정
+  RESULT // 0P 결과 기록 (불합격 등)
+}
+
+/// 포인트 원장. 절대 UPDATE/DELETE 하지 않는다. 정정은 REVERSAL 행 추가.
+model PointLedgerEntry {
+  id           String         @id @default(cuid())
+  userId       String
+  type         PointEntryType
+  amount       Int // +적립 / -차감
+  balanceAfter Int
+  reason       String
+  dedupeKey    String         @unique // 예: reward:{enrollmentId}, exchange:{orderId}
+  refType      String?
+  refId        String?
+  reversesId   String?        @unique // 역분개 대상 (한 건은 한 번만 취소)
+  expiresAt    DateTime?
+  isVirtual    Boolean        @default(true) // REWARDS_LIVE=false 동안 가상 포인트
+  createdById  String? // 관리자 수동 처리 시
+  createdAt    DateTime       @default(now())
+  user         User           @relation("PointOwner", fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+/// 잔액 캐시 + 낙관적 잠금 (version). 원장과 같은 트랜잭션에서만 갱신.
+model PointAccount {
+  userId    String   @id
+  balance   Int      @default(0)
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+/// 학습 XP 원장 (경제적 가치 없음 — 포인트와 분리)
+model XpLedgerEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  deltaXp    Int
+  sourceType String // study | test | streak | clear
+  sourceId   String
+  eventKey   String   @unique
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+// ───────────────────────── 합격 인증 ─────────────────────────
+
+enum VerificationStatus {
+  REVIEWING
+  NEEDS_FIX
+  APPROVED
+  FAILED // 불합격 확인
+  REJECTED // 증빙 부적합 반려
+}
+
+model PassVerification {
+  id           String             @id @default(cuid())
+  enrollmentId String             @unique // 참여당 1건 (재제출은 같은 행 갱신 + 이력)
+  userId       String
+  examNumber   String // 수험번호 (마스킹 저장 권장: 뒤 4자리만 평문)
+  examRoundId  String?
+  evidenceKey  String? // S3 object key
+  status       VerificationStatus @default(REVIEWING)
+  note         String?
+  reviewerId   String?
+  reviewedAt   DateTime?
+  submittedAt  DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@index([status, submittedAt])
+}
+
+// ───────────────────────── 관리자 ─────────────────────────
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String // VERIFICATION_APPROVE, ORDER_REFUND, POINT_ADJUST, POLICY_UPDATE ...
+  targetType String
+  targetId   String
+  before     Json?
+  after      Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+  actor      User     @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
+}
