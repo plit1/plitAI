@@ -84,6 +84,14 @@ async function main() {
     }
   }
 
+  // 예시 광고 3종 (데모 GX_AD_CAMPAIGNS) — 연락처를 받지 않고 어디에도 전달하지 않음
+  if (plan.demoContent) {
+    type A = { id: string; category: string; advertiserName: string; title: string; description: string; detail: string[]; ctaText: string; cpaPrice: number; targetFields: string[]; topics: string[] };
+    for (const a of demoJS.AD_CAMPAIGNS as A[]) {
+      await prisma.adCampaign.upsert({ where: { id: a.id }, create: { ...a, status: 'ACTIVE', isDemo: true, collectsContact: false }, update: { title: a.title, description: a.description, detail: a.detail, topics: a.topics } });
+    }
+  }
+
   if (plan.devUsers) {
     const pw = await bcrypt.hash('PlitAdmin123!', 12);
     for (const [email, nickname, role, code] of [['admin@plit.local', '최고관리자', 'SUPER_ADMIN', 'ADMIN001'], ['operator@plit.local', '운영자', 'OPERATOR', 'OPER0001']] as const) {

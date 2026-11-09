@@ -20,6 +20,8 @@ export class Env {
   @IsOptional() @IsString() TOSS_CLIENT_KEY?: string;
 
   @Transform(({ value }) => value === true || value === 'true') @IsBoolean() REWARDS_LIVE = false;
+  /** 광고주 제3자 제공용 연락처 수집 캠페인 활성화 (개인정보 외부 제공 — 사용자 승인 후에만 true) */
+  @Transform(({ value }) => value === true || value === 'true') @IsBoolean() AD_CONTACT_COLLECTION = false;
 
   @IsOptional() @IsString() KAKAO_CLIENT_ID?: string;
   @IsOptional() @IsString() KAKAO_CLIENT_SECRET?: string;
