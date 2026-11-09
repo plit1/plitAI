@@ -5,6 +5,7 @@
 import { ChallengeType, Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import raw from './seed-data/certifications.raw.json';
+import demoQuiz from './seed-data/demo-quiz-items.json';
 import { DEFAULT_POLICY, DEFAULT_POLICY_VERSION } from '../src/modules/policy/policy.defaults';
 
 const prisma = new PrismaClient();
@@ -43,6 +44,16 @@ async function main() {
 
   await prisma.policyVersion.upsert({ where: { id: DEFAULT_POLICY_VERSION }, create: { id: DEFAULT_POLICY_VERSION, values: DEFAULT_POLICY as unknown as Prisma.InputJsonValue, isCurrent: true, createdBy: 'seed' }, update: {} });
   if (!(await prisma.policyVersion.findFirst({ where: { isCurrent: true } }))) await prisma.policyVersion.update({ where: { id: DEFAULT_POLICY_VERSION }, data: { isCurrent: true } });
+
+  // 데모 v2.9 QUICK TEST 예시 20문항 (산업안전기사) — 공식 기출 아님, isSample 로 화면에 고지
+  if ((await prisma.quizItem.count({ where: { isSample: true } })) === 0) {
+    await prisma.quizItem.createMany({
+      data: (demoQuiz as { subject: string; prompt: string; options: string[]; answer: number }[]).map((q) => ({
+        certId: 'industrial-safety', subject: q.subject, prompt: q.prompt, options: q.options, answer: q.answer,
+        source: 'PLIT 데모 예시 문항 (공식 기출 아님)', isSample: true, status: 'PUBLISHED' as const,
+      })),
+    });
+  }
 
   if (process.env.SEED_DEV_USERS !== 'false' && process.env.NODE_ENV !== 'production') {
     const pw = await bcrypt.hash('PlitAdmin123!', 12);

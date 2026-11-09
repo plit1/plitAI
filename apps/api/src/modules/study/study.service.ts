@@ -108,22 +108,36 @@ export class StudyService {
     return { id: s.id, enrollmentId: s.enrollmentId, status: s.status, startedAt: s.startedAt, elapsedSec: this.elapsed(s), minutes: s.minutes };
   }
 
-  /** 대시보드: 학습기록 + PLIT 도전 지표(추정) + 회차 내 비교 */
-  async dashboard(userId: string, enrollmentId: string) {
-    const { enrollment, plan } = await this.entitlements.require(userId, enrollmentId, 'BASIC_PROBABILITY');
-    const [rec, offering, mine, open] = await Promise.all([
+  /** 지표 계산 입력 (대시보드·QUICK TEST·전략 공용) */
+  async snapshot(enrollmentId: string) {
+    const enrollment = await this.prisma.enrollment.findUniqueOrThrow({ where: { id: enrollmentId } });
+    const [rec, offering, mine] = await Promise.all([
       this.prisma.studyRecord.findUniqueOrThrow({ where: { enrollmentId } }),
       this.prisma.challengeOffering.findUniqueOrThrow({ where: { id: enrollment.offeringId }, include: { cert: true } }),
       this.prisma.studySession.findMany({ where: { enrollmentId, status: 'COMPLETED', endedAt: { gte: new Date(Date.now() - 14 * 86400000) } }, select: { userId: true, minutes: true, endedAt: true } }),
-      this.prisma.studySession.findFirst({ where: { enrollmentId, status: { in: ['RUNNING', 'PAUSED'] } } }),
     ]);
     const now = new Date();
-    const w = studyWindow(mine.map((m) => ({ userId: m.userId, minutes: m.minutes ?? 0, endedAt: m.endedAt! })), now, kstDate);
-    const daysLeft = daysBetween(now, offering.examDate);
-    const index = challengeIndex({
-      avg7: w.avg7, trendPct: w.trendPct, quizScore: rec.accuracy, quizSource: 'QUICK TEST', progress: Math.floor(rec.progress),
-      daysLeft, remainingMin: Math.max(0, INDEX_DEFAULTS.requiredTotalMin - rec.totalMin),
+    return { enrollment, rec, offering, w: studyWindow(mine.map((m) => ({ userId: m.userId, minutes: m.minutes ?? 0, endedAt: m.endedAt! })), now, kstDate), daysLeft: daysBetween(now, offering.examDate) };
+  }
+
+  /** quizScore 를 바꿔 넣으면 QUICK TEST 전후 비교에 사용 */
+  indexFor(snap: Awaited<ReturnType<StudyService['snapshot']>>, quizScore: number | null = snap.rec.accuracy) {
+    return challengeIndex({
+      avg7: snap.w.avg7, trendPct: snap.w.trendPct, quizScore, quizSource: 'QUICK TEST', progress: Math.floor(snap.rec.progress),
+      daysLeft: snap.daysLeft, remainingMin: Math.max(0, INDEX_DEFAULTS.requiredTotalMin - snap.rec.totalMin),
     });
+  }
+
+  /** 대시보드: 학습기록 + PLIT 도전 지표(추정) + 회차 내 비교 */
+  async dashboard(userId: string, enrollmentId: string) {
+    const { enrollment, plan } = await this.entitlements.require(userId, enrollmentId, 'BASIC_PROBABILITY');
+    const [snap, open] = await Promise.all([
+      this.snapshot(enrollmentId),
+      this.prisma.studySession.findFirst({ where: { enrollmentId, status: { in: ['RUNNING', 'PAUSED'] } } }),
+    ]);
+    const { rec, offering, w, daysLeft } = snap;
+    const now = new Date();
+    const index = this.indexFor(snap);
 
     // 비교 모집단: 같은 회차 참가자 (FREE/PREMIUM 모두, 테스트·탈퇴 계정 제외). 집계값만 반환.
     const since = new Date(now.getTime() - 7 * 86400000);
@@ -138,7 +152,7 @@ export class StudyService {
 
     return {
       enrollmentId, plan, cert: { id: offering.cert.id, name: offering.cert.name }, round: offering.round, examDate: offering.examDate, daysLeft,
-      record: { progress: rec.progress, totalMin: rec.totalMin, weekMin: w.weekMin, streak: rec.streak, lastStudyDate: rec.lastStudyDate, accuracy: rec.accuracy, expectedScore: rec.expectedScore, subjects: rec.subjects, missions: rec.missions, clearModeStarted: rec.clearModeStarted },
+      record: { progress: rec.progress, totalMin: rec.totalMin, weekMin: w.weekMin, streak: rec.streak, lastStudyDate: rec.lastStudyDate, accuracy: rec.accuracy, expectedScore: rec.expectedScore, subjects: rec.subjects, missions: rec.missions, clearModeStarted: rec.clearModeStarted, appliedPlan: rec.appliedPlan },
       recommendedDailyMin: INDEX_DEFAULTS.targetDailyMin,
       index, comparison, openSession: open ? this.view(open) : null,
     };

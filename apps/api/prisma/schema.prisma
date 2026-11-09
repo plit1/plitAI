@@ -71,6 +71,10 @@ model User {
   auditLogs        AdminAuditLog[]         @relation("AuditActor")
   openRunRequests  OpenRunRequest[]        @relation("OpenRunRequester")
   openRunInterests OpenRunInterest[]
+  quizAttempts     QuizAttempt[]
+  posts            CommunityPost[]
+  comments         CommunityComment[]
+  chatMessages     ChatMessage[]
   aiUsage          AiUsageLog[]
 
   @@index([status])
@@ -304,6 +308,7 @@ model StudyRecord {
   subjects         Json // [{name, accuracy, progress}]
   missions         Json // [{id,title,minutes,done,priority}]
   clearModeStarted Boolean    @default(false)
+  appliedPlan      Json? // { key, recommended, appliedAt } — 데모 G6
   updatedAt        DateTime   @updatedAt
   enrollment       Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 }
@@ -592,4 +597,212 @@ model OpenRunInterest {
 
   @@id([requestId, userId])
   @@index([userId])
+}
+
+// ───────────────────────── QUICK TEST (Phase 4) ─────────────────────────
+
+enum QuizItemStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+/// 문항 은행. 출처·저작권 확인 전 문항은 PUBLISHED 금지. 데모 예시 문항은 isSample=true 로 화면에 표시.
+model QuizItem {
+  id          String         @id @default(cuid())
+  certId      String
+  subject     String
+  prompt      String
+  options     String[]
+  answer      Int // 0-based 정답 인덱스 (응시 화면에 절대 노출하지 않음)
+  explanation String?
+  source      String // 출처 (자체 제작 / 기관 공개 문제 등)
+  isSample    Boolean        @default(false)
+  status      QuizItemStatus @default(DRAFT)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([certId, status, subject])
+}
+
+enum QuizKind {
+  QUICK
+  FINAL // 시험 D-7 이하 FINAL CLEAR TEST
+}
+
+/// 응시 1회. 출제 시 문항·순서를 고정해 저장하고, 제출은 1회만 (submittedAt 조건부 갱신).
+model QuizAttempt {
+  id            String    @id @default(cuid())
+  userId        String
+  enrollmentId  String
+  kind          QuizKind
+  itemIds       String[]
+  answers       Json? // { itemId: 선택 인덱스 }
+  correct       Int?
+  total         Int
+  accuracy      Int?
+  expectedScore Int?
+  result        Json? // 과목별 정확도·과락 위험·지표 변화
+  createdAt     DateTime  @default(now())
+  submittedAt   DateTime?
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@index([enrollmentId, createdAt])
+}
+
+// ───────────────────────── 커뮤니티 (Phase 4) ─────────────────────────
+
+enum PostOrigin {
+  COMMUNITY
+  STUDY_ROOM // 스터디룸에서 작성 → 전체 커뮤니티에도 노출 (단일 원본)
+}
+
+enum ContentStatus {
+  VISIBLE
+  HIDDEN // 운영자 숨김
+  DELETED // 작성자 삭제
+}
+
+model CommunityPost {
+  id           String             @id @default(cuid())
+  authorId     String
+  category     String // 질문 · 응원 · 학습 기록 · 합격 후기
+  title        String
+  body         String
+  certId       String?
+  origin       PostOrigin         @default(COMMUNITY)
+  roomId       String? // STUDY_ROOM 이면 회차(offering) ID
+  isPublic     Boolean            @default(true) // false 면 스터디룸 안에서만 (자동 공개 꺼짐)
+  status       ContentStatus      @default(VISIBLE)
+  likeCount    Int                @default(0)
+  viewCount    Int                @default(0)
+  commentCount Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  author       User               @relation(fields: [authorId], references: [id])
+  comments     CommunityComment[]
+  likes        PostLike[]
+
+  @@index([status, isPublic, createdAt])
+  @@index([roomId, createdAt])
+  @@index([category, createdAt])
+}
+
+model CommunityComment {
+  id        String        @id @default(cuid())
+  postId    String
+  authorId  String
+  body      String
+  status    ContentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id])
+
+  @@index([postId, createdAt])
+}
+
+model PostLike {
+  postId    String
+  userId    String
+  createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+}
+
+/// 조회수: 회원 1인 1일 1회
+model PostView {
+  postId String
+  userId String
+  day    String // KST YYYY-MM-DD
+
+  @@id([postId, userId, day])
+}
+
+enum ReportTarget {
+  POST
+  COMMENT
+  CHAT
+}
+
+enum ReportStatus {
+  PENDING
+  HIDDEN // 운영자 숨김 처리
+  DISMISSED // 문제 없음
+}
+
+/// 신고. 같은 회원이 같은 대상을 처리 전 중복 신고 불가.
+model ContentReport {
+  id             String       @id @default(cuid())
+  reporterId     String
+  targetType     ReportTarget
+  targetId       String
+  targetAuthorId String
+  roomId         String?
+  excerpt        String
+  reason         String
+  status         ReportStatus @default(PENDING)
+  handledById    String?
+  handledAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([reporterId, targetType, targetId])
+  @@index([status, createdAt])
+}
+
+/// 회원 간 차단 (차단한 사람의 화면에서만 숨김)
+model UserBlock {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+}
+
+// ───────────────────────── 스터디룸 (Phase 4) ─────────────────────────
+
+/// 회차(offering)당 1개. closeAt 이후 7일 읽기 전용 → 보관(채팅 삭제, 게시글 보존)
+model StudyRoom {
+  id        String        @id // = offeringId
+  closeAt   DateTime?
+  purgedAt  DateTime? // 채팅 삭제 배치 실행 시각
+  autoShare Boolean       @default(true) // 스터디룸 글 전체 커뮤니티 자동 공개
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        String        @id @default(cuid())
+  roomId    String
+  authorId  String
+  kind      String        @default("text") // text | event (공부 완료 공유 등)
+  body      String
+  status    ContentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now())
+  room      StudyRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id])
+
+  @@index([roomId, createdAt])
+}
+
+/// 채팅 삭제 시 신고·분쟁 메시지 보존본 (관리자 전용, 90일)
+model ChatHold {
+  id        String   @id @default(cuid())
+  roomId    String
+  messageId String   @unique
+  authorId  String
+  body      String
+  reason    String
+  holdUntil DateTime
+  createdAt DateTime @default(now())
+}
+
+/// 공개 고지 확인 (스터디룸 글이 전체 커뮤니티에 공개된다는 안내)
+model NoticeAck {
+  userId    String
+  version   String
+  createdAt DateTime @default(now())
+
+  @@id([userId, version])
 }
