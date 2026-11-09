@@ -44,3 +44,26 @@
 | GET | /admin/users/:id/points/audit | OPERATOR | 캐시=원장 합계 검사 |
 | POST | /admin/policy `{version, values}` | SUPER_ADMIN | 새 정책 버전 발행 |
 | POST/PATCH | /admin/offerings(/:id) | OPERATOR | 회차 개설·변경 |
+
+## Phase 3 추가 (세션 2)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| POST | /auth/login | 공개 | MFA 사용자는 `{mfaRequired:true, mfaToken}` (5분) 반환, 토큰 미발급 |
+| POST | /auth/login/mfa `{mfaToken, code}` | 공개 | OTP 확인 후 토큰 발급 (세션에 mfa=true) |
+| GET | /auth/mfa | 회원 | MFA 상태 |
+| POST | /auth/mfa/enroll · /confirm `{code}` · /disable `{code}` | 회원 | 등록 시작(시크릿·otpauth URL) / 활성화 / 해제(모든 세션 폐기) |
+| GET | /me/identities | 회원 | 연결된 로그인 수단 |
+| POST | /me/identities/:provider/link | 회원 | `{url}` 반환 → 이동, 콜백 후 `/my/account?linked=` |
+| DELETE | /me/identities/:provider | 회원 | 이메일·마지막 수단 해제 불가 |
+| POST | /admin/users/:id/mfa/reset `{reason}` | SUPER_ADMIN | 본인 불가, 감사 로그 |
+| GET | /open-run?status&sort&q · /open-run/:id | 공개 | 검토 대기·반려는 비공개(요청자 본인만) |
+| POST | /open-run `{title, category, round?, reason?}` | 회원 | 409 CERT_EXISTS(details.certId) / 병합 시 merged=true / 429 DAILY_LIMIT |
+| PUT/DELETE | /open-run/:id/interest | 회원 | 모집 단계에서만 |
+| GET | /me/open-run | 회원 | 내 요청·관심 |
+| GET | /admin/open-run?status · POST /admin/open-run/:id/review `{action, note?, offeringId?}` | OPERATOR | APPROVE·START_REVIEW·REJECT·OPEN |
+| GET | /certifications/:id/exam-rounds | 공개 | 공식 시험 일정 |
+| GET/POST | /admin/exam-rounds · DELETE /admin/exam-rounds/:id | OPERATOR | 직접 입력(같은 회차명은 수정) |
+| POST | /admin/exam-rounds/import `{csv, dryRun=true}` | OPERATOR | 헤더 certId,label,applyStart,applyEnd,examDate,resultDate |
+| GET | /admin/exam-rounds/providers | OPERATOR | 출처별 연동 상태 |
+
+관리자 API(@Roles OPERATOR 이상)는 `ADMIN_MFA_REQUIRED=true` 일 때 MFA 세션이 아니면 `403 MFA_REQUIRED`.

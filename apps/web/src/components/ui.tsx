@@ -10,6 +10,7 @@ export function Header() {
       <nav aria-label="주요 메뉴" className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
         <Link href="/" className="font-display text-xl font-black tracking-tight text-cobalt">PLIT</Link>
         <Link href="/finder" className="text-sm font-semibold text-ink-soft hover:text-ink">자격증찾기</Link>
+        <Link href="/open-run" className="hidden text-sm font-semibold text-ink-soft hover:text-ink sm:inline">오픈런</Link>
         <Link href="/my" className="text-sm font-semibold text-ink-soft hover:text-ink">내 챌린지</Link>
         <div className="ml-auto flex items-center gap-2 text-sm">
           {!ready ? null : me ? (
@@ -45,3 +46,9 @@ export const Badge = ({ children, tone = 'cobalt' }: { children: React.ReactNode
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${m[tone]}`}>{children}</span>;
 };
 export const FIELD_LABEL: Record<string, string> = { care: '돌봄·건강', beauty: '뷰티', food: '카페·푸드', life: '라이프', office: '사무·IT', edu: '교육', biz: '비즈니스', lang: '어학' };
+
+/** 오픈런 상태 라벨 */
+export const OR_STATUS: Record<string, [string, 'cobalt' | 'clear' | 'gold' | 'mint' | 'risk' | 'mute']> = {
+  PENDING_REVIEW: ['검토 대기', 'mute'], COLLECTING: ['모집 중', 'cobalt'], THRESHOLD_REACHED: ['목표 달성 · 개설 심사 대기', 'clear'],
+  UNDER_REVIEW: ['개설 검토 중', 'gold'], OPENED: ['개설됨', 'mint'], REJECTED: ['반려', 'risk'],
+};

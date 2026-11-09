@@ -5,10 +5,17 @@
 |---|---|---|
 | API 단위 + 통합(E2E) | `cd apps/api && pnpm test` | 실제 PostgreSQL `plit_test` (이름에 test 없으면 실행 거부) |
 | 웹 타입체크·빌드 | `pnpm --filter @plit/web typecheck && pnpm --filter @plit/web build` | |
-| 브라우저 핵심 흐름 | API(:4000)·WEB(:3000) 기동 후 `node apps/web/e2e/core-flow.mjs` | Playwright Chromium, dev DB |
+| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
 | CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
 
-## 2026-11-09 실행 결과 (이 세션에서 실제 실행)
+## 세션 2 실행 결과 (Phase 3)
+- API: **12 suites / 95 tests 통과** (세션 1 대비 +44) — MFA 5, OAuth·계정연결 7, 오픈런 6, 텍스트필터 11, 시험일정 7(+파서 3), TOTP 8
+- TOTP: RFC 6238 부록 B 공식 테스트 벡터 5종 일치
+- 브라우저: `run.sh` 로 core-flow(전 단계, 관리자 MFA 포함)·phase3-flow(9단계 + 모바일) **모두 통과**
+- 발견·수정 결함: (1) 다른 용도 JWT 를 Bearer 로 보내면 500 → 401 (2) 동의 체크박스가 클릭 즉시 반영되지 않음 → 낙관적 갱신 (3) 기본 JSON 본문 100KB 제한으로 CSV 거절 → 1.1MB (4) E2E 실행기가 서버 파이프를 잡아 종료되지 않음 (5) 날짜 검증에서 없는 월 입력 시 예외 → 오류 행 처리
+- 세션 1 문서의 "dev DB 리셋 후 E2E" 는 실제로는 리셋이 실행되지 않았음(Prisma 가 AI 실행 차단, 출력 미확인) — 세션 1 E2E 결과는 기존 데이터 위에서 통과한 것. 세션 2 부터 새 DB 방식으로 교정
+
+## 세션 1 실행 결과 (2026-11-09)
 - API: **5 suites / 51 tests 통과** (단위 8 + E2E 43), 타입체크 통과
 - WEB: 타입체크 통과, `next build` 성공 (14 routes, 첫 로드 JS ≈ 102~110 kB)
 - 브라우저 E2E `core-flow.mjs`: **전 단계 통과**

@@ -5,6 +5,7 @@ import { execSync } from 'child_process';
 import { mkdirSync, writeFileSync } from 'fs';
 const require = createRequire(import.meta.url);
 const { chromium, devices } = require('playwright');
+import { adminWithMfa } from './lib.mjs';
 
 const WEB = process.env.WEB || 'http://localhost:3000';
 const PGURL = process.env.PGURL || 'postgresql://plit:plit@localhost:5432/plit_dev';
@@ -15,6 +16,9 @@ const step = (n, msg) => console.log(`✓ [${n}] ${msg}`);
 const email = `e2e${Date.now()}@test.plit`;
 
 const browser = await chromium.launch();
+const pages = [];
+const _newContext = browser.newContext.bind(browser);
+browser.newContext = async (...a) => { const c = await _newContext(...a); const _np = c.newPage.bind(c); c.newPage = async () => { const pg = await _np(); pages.push(pg); return pg; }; return c; };
 try {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
@@ -81,16 +85,12 @@ try {
 
   // 11. 관리자 승인 (별도 브라우저 컨텍스트)
   const admin = await (await browser.newContext()).newPage();
-  await admin.goto(`${WEB}/login?next=/admin`);
-  await admin.getByLabel('이메일').fill('admin@plit.local');
-  await admin.getByLabel('비밀번호').fill('PlitAdmin123!');
-  await admin.getByRole('button', { name: '로그인' }).click();
-  await admin.waitForURL('**/admin');
+  await adminWithMfa(admin, WEB); // 스테이징 설정: 관리자 MFA 필수
   const row = admin.locator('li', { hasText: '이투이' });
   await row.getByRole('button', { name: '승인' }).click();
   await admin.getByText(/처리 완료: APPROVED · 20,000P 지급/).waitFor();
   await admin.screenshot({ path: `${OUT}/11-admin.png`, fullPage: true });
-  step(11, '관리자 합격 승인');
+  step(11, '관리자 MFA 로그인 → 합격 승인');
 
   // 12~13. 보상 포인트 + 이력
   await page.goto(`${WEB}/my/points`);
@@ -111,7 +111,8 @@ try {
   step('M', '모바일(iPhone 13) 가로 넘침 없음');
   console.log('CORE FLOW PASSED');
 } catch (e) {
-  console.error('CORE FLOW FAILED:', e.message);
+  console.error('CORE FLOW FAILED:', e.message.split('\n')[0]);
+  for (const [i, pg] of pages.entries()) { try { await pg.screenshot({ path: `${OUT}/FAIL-${i}.png`, fullPage: true }); console.error(`--- page ${i} ${pg.url()}\n` + (await pg.locator('main').innerText()).slice(0, 300)); } catch {} }
   process.exitCode = 1;
 } finally {
   await browser.close();

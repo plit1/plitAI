@@ -3,9 +3,32 @@
 > 다음 세션은 이 파일 → `development-roadmap.md` → `decisions.md` 순서로 확인.
 
 ## 현재 위치
-- 브랜치: `feature/phase0-2-foundation` (develop 에서 분기), 기준 태그 `demo-v2.9-stable`
+- 브랜치: `feature/phase3-member-admin` (develop 에서 분기). 이전: `feature/phase0-2-foundation` (develop 에 반영됨)
 - GitHub `plit1/plitAI` 에 `develop`, `feature/phase0-2-foundation` push 완료, CI 통과 (API 51/51, web build). 태그 `demo-v2.9-stable` 은 프록시 오류로 push 실패 → 로컬에만 존재 (main@0bf2531 과 동일 커밋)
-- 완료 Phase: 0 (분석), 1 (설계 문서), 2 (기반) / 진행: 3 일부, 5 일부(결제·인증·원장 백엔드 선행)
+- 완료 Phase: 0, 1, 2, **3** / 진행: 5 일부(결제·인증·원장 백엔드 선행)
+
+## 세션 2 (2026-11-09) — Phase 3
+### 완료
+- 관리자 2단계 인증(TOTP): 등록·해제·OTP 로그인·refresh 유지·리플레이 차단·시크릿 암호화·최고관리자 초기화. `ADMIN_MFA_REQUIRED`(운영·스테이징 기본 true)
+- 보안 수정: access 토큰 `typ` 클레임 검사 — 같은 키로 서명된 OAuth state·MFA 단계 토큰의 Bearer 사용 차단 (기존 500 → 401)
+- 소셜 계정 연결·해제 API + OAuth 콜백 첫 자동 테스트(가짜 provider)
+- 오픈런(신규 챌린지 개설 요청): 데모 orRequests 규칙 이관, 공통 텍스트 필터
+- 시험 일정: 직접 입력·CSV 일괄 등록(미리보기·전체 거부)·공개 조회
+- 화면: 로그인 OTP 단계, 소셜+MFA, 계정 설정(프로필·선택 동의·로그인 연결·MFA·탈퇴), 오픈런, 관리자 8개 화면(대시보드·정책·회차·시험일정·오픈런·회원·결제·감사로그)
+- 브라우저 E2E 실행기 `apps/web/e2e/run.sh`: 흐름마다 새 DB 생성(기존 데이터 무변경), API 를 staging 설정으로 검증
+
+### 기능 상태 (세션 2 변경분)
+| 기능 | 상태 |
+|---|---|
+| 관리자 MFA (TOTP) | 개발 및 테스트 완료 (복구 코드는 미구현 — 분실 시 최고관리자 초기화) |
+| 계정 연결·해제 | 개발 및 테스트 완료 (가짜 provider) / 실제 카카오·네이버·구글 통신은 외부 연동 대기 |
+| 오픈런 요청·관심·심사·회차 연결 | 개발 및 테스트 완료 / 개설 알림 발송은 미구현(대상 수만 집계, 알림 모듈 Phase 7) |
+| 시험 일정 직접 입력·CSV | 개발 및 테스트 완료 |
+| 큐넷 공공데이터 API 자동 동기화 | 외부 연동 대기 — data.go.kr 가 이 세션 네트워크에서 차단되어 응답 명세를 확인하지 못함. 추측 구현하지 않음 |
+| 관리자 화면 8종 | 개발 및 테스트 완료 (브라우저 E2E 는 정책·회차·시험일정·오픈런·감사로그 경로, 회원·결제 화면은 API 테스트만) |
+| 계정 설정 화면 | 개발 및 테스트 완료 (선택 동의 E2E), 소셜 연결 버튼은 키 없어 화면 미검증 |
+| 모바일 헤더의 오픈런 메뉴 | 미구현 (sm 미만에서 숨김 — 모바일 메뉴 필요) |
+| 관리자 회차 목록의 draft/cancelled 표시 | 일부 (공개 목록 API 재사용으로 open/closed 만 조회) |
 
 ## 세션 1 (2026-11-09)
 ### 완료
@@ -43,8 +66,9 @@
 | CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. 태그 `demo-v2.9-stable` push 재시도, `develop` → `main` PR 여부 결정
-2. `plitAI/plitAI`(private)에 데모 원본 소스(.jsx)가 있는지 확인 — 있으면 웹 재구현 전략 변경 (decisions D-002)
-3. Phase 3 마무리: 관리자 정책·회차 화면, 계정 연결 API, 관리자 MFA(TOTP), 챌린지 개설 요청
-4. Phase 4: QUICK TEST 문항 은행, 스터디룸(socket.io + Redis), 커뮤니티, AI 전략(Claude API, 사용량 제한·비용 로그)
-5. 토스 테스트 키 받으면 `PAYMENT_PROVIDER=TOSS` 로 결제위젯 연동·실 테스트
+1. `feature/phase3-member-admin` → `develop` 반영 (CI 확인 후)
+2. Phase 4: QUICK TEST 문항 은행·채점(서버), AI 학습전략(Claude API — 응답 생성과 지표 계산 분리, 사용량 한도·비용 로그), CLEAR MODE
+3. Phase 4: 스터디룸 실시간(socket.io + Redis adapter, 공통 text-filter 재사용, 신고·제재), 커뮤니티(스터디룸 글 자동 노출)
+4. 모바일 내비게이션 메뉴, 관리자 회차 전체 상태 조회 API
+5. 외부 키 도착 시: 토스 테스트키 결제위젯, 소셜 로그인 실연동, data.go.kr 접근 허용 후 큐넷 어댑터
+6. 정리: E2E 가 만든 `plit_e2e_*` DB (자동 삭제 안 함)

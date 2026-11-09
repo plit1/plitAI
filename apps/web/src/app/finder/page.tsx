@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { useApi } from '@/lib/use-api';
 import { api, dday } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -9,9 +10,12 @@ import { Badge, ErrorBox, FIELD_LABEL, Spinner } from '@/components/ui';
 interface Cert { id: string; name: string; field: string; qualType: string; issuer: string; difficulty: number; tagline: string; nextOffering: { id: string; round: string; status: string; recruitEnd: string; examDate: string } | null }
 const GROUPS = [['', '전체'], ['NATIONAL_TECH', '국가기술'], ['NATIONAL_PRO', '국가전문·국가자격'], ['PRIVATE', '민간·공인민간'], ['LANGUAGE', '어학']];
 
-export default function Finder() {
-  const [q, setQ] = useState(''); const [field, setField] = useState(''); const [group, setGroup] = useState('');
-  const [applied, setApplied] = useState('');
+export default function Page() { return <Suspense><Finder /></Suspense>; }
+
+function Finder() {
+  const initial = useSearchParams().get('q')?.slice(0, 50) ?? '';
+  const [q, setQ] = useState(initial); const [field, setField] = useState(''); const [group, setGroup] = useState('');
+  const [applied, setApplied] = useState(initial);
   const params = new URLSearchParams(Object.entries({ q: applied, field, group }).filter(([, v]) => v)).toString();
   const { data, error, loading, reload } = useApi<{ items: Cert[]; total: number }>(`/certifications${params ? `?${params}` : ''}`);
   const { me } = useAuth();

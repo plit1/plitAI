@@ -22,7 +22,7 @@ cd apps/api && cp .env.example .env && npx prisma migrate dev && pnpm seed && pn
 cd apps/web && pnpm dev             # http://localhost:3000 (/api 는 :4000 으로 프록시)
 ```
 테스트: `cd apps/api && pnpm test` (plit_test DB 필요, 이름에 test 없으면 실행 거부) /
-브라우저 E2E: API·WEB 기동 후 `cd apps/web && node e2e/core-flow.mjs`
+브라우저 E2E: `apps/web/e2e/run.sh` (흐름마다 새 DB 생성 — DB 리셋 금지)
 
 ## 절대 규칙
 - 금액·포인트는 정수. 결제 금액은 **서버 정책값**으로만 계산, 클라이언트 값은 비교용.

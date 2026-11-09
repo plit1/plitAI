@@ -34,5 +34,10 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - 탈퇴: email/password/nickname/MFA 익명화, 소셜 연결·관심 삭제. 결제·포인트 원장은 법정 보존(전자상거래법 5년) 후 파기 배치(미구현)
 - 테스트 계정: `User.isTest`, 테스트 주문: `Order.isTest`, 가상 포인트: `PointLedgerEntry.isVirtual`
 
+## Phase 3 추가
+- `User.mfaSecret`(암호문) · `mfaEnabledAt` · `mfaLastStep`(리플레이 차단) / `RefreshToken.mfa`
+- `OpenRunRequest`(certificationKey UNIQUE = 정규화 이름, interestCount 캐시) · `OpenRunInterest`(requestId, userId) PK
+- 마이그레이션: `20261109125104_phase3_mfa_open_requests`(초안 테이블 포함) → `20261109125519_open_run_requests`(초안 제거·오픈런 모델로 교체, 미배포 상태에서 교체)
+
 ## 이후 추가 예정 테이블 (Phase 4~7)
 StudyRoom/ChatMessage/Report, CommunityPost/Comment/Like, QuizItem/QuizAttempt, Pet, Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, JobPosting 캐시, StartupProgram
