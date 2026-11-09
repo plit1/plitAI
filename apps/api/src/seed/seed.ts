@@ -76,6 +76,14 @@ async function main() {
     }
   }
 
+  // 포인트몰 예시 상품 (데모 lN 10종, 테스트 공급사 — 실제 사용 불가 쿠폰)
+  if (plan.demoContent) {
+    type P = { id: string; category: string; brand: string; name: string; price: number };
+    for (const [i, p] of (demoJS.MALL_PRODUCTS as P[]).entries()) {
+      await prisma.mallProduct.upsert({ where: { id: p.id }, create: { ...p, supplier: 'TEST', isDemo: true, sortOrder: i }, update: { category: p.category, brand: p.brand, name: p.name, price: p.price } });
+    }
+  }
+
   if (plan.devUsers) {
     const pw = await bcrypt.hash('PlitAdmin123!', 12);
     for (const [email, nickname, role, code] of [['admin@plit.local', '최고관리자', 'SUPER_ADMIN', 'ADMIN001'], ['operator@plit.local', '운영자', 'OPERATOR', 'OPER0001']] as const) {
