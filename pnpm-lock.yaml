@@ -140,6 +140,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@tosspayments/tosspayments-sdk':
+        specifier: ^2.10.0
+        version: 2.10.0
       next:
         specifier: ^15.5.29
         version: 15.5.29(@opentelemetry/api@1.10.0)(@types/node@22.20.5)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1182,6 +1185,9 @@ packages:
 
   '@tokenizer/token@0.3.0':
     resolution: {integrity: sha512-OvjF+z51L3ov0OyAU0duzsYuvO01PH7x4t6DJx+guahgTnBHkhJdG7soQeTSFLWN3efnHyibZ4Z8l2EuWwJN3A==}
+
+  '@tosspayments/tosspayments-sdk@2.10.0':
+    resolution: {integrity: sha512-nwpLRKPBwFvajv6MG2bCqB9dAyeHeIAhBaTeAEm9T0NHvjGrv11pGtWEF+GEXXwNGlof4LROZEKQEJMe808U7w==}
 
   '@tsconfig/node10@1.0.13':
     resolution: {integrity: sha512-gcLdvR9HO1ZJBypsOGqaP6TFEzb6vIta0KSTLt9NAQ6pXQO3cRgSVyCN6pzYqI9DlJgY71XKO0dpDhCf08b3pg==}
@@ -4909,6 +4915,8 @@ snapshots:
       - supports-color
 
   '@tokenizer/token@0.3.0': {}
+
+  '@tosspayments/tosspayments-sdk@2.10.0': {}
 
   '@tsconfig/node10@1.0.13': {}
 

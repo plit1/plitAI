@@ -12,6 +12,7 @@
     "test:e2e": "node e2e/core-flow.mjs"
   },
   "dependencies": {
+    "@tosspayments/tosspayments-sdk": "^2.10.0",
     "next": "^15.5.29",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

@@ -55,6 +55,10 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     if (env.PAYMENT_PROVIDER === 'MOCK') throw new Error('운영 환경에서는 MOCK 결제를 사용할 수 없습니다.');
   }
   if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER !== 's3') throw new Error('운영 환경 개인정보 파일은 S3(STORAGE_DRIVER=s3)에 저장해야 합니다.');
+  if (env.TOSS_CLIENT_KEY && !/^(test|live)_gck_/.test(env.TOSS_CLIENT_KEY)) throw new Error('결제위젯에는 주문서형 연동 클라이언트 키(test_gck_/live_gck_)가 필요합니다.');
+  const live = [env.TOSS_CLIENT_KEY, env.TOSS_SECRET_KEY].some((k) => k?.startsWith('live_'));
+  if (live && env.NODE_ENV !== 'production') throw new Error('운영(live) 결제 키는 production 환경에서만 사용할 수 있습니다. (실결제 방지)');
+  if (env.NODE_ENV === 'production' && env.PAYMENT_PROVIDER === 'TOSS' && !(env.TOSS_CLIENT_KEY?.startsWith('live_') && env.TOSS_SECRET_KEY?.startsWith('live_'))) throw new Error('운영 환경에는 live 결제 키가 필요합니다.');
   if (env.PAYMENT_PROVIDER === 'TOSS' && !env.TOSS_SECRET_KEY) throw new Error('PAYMENT_PROVIDER=TOSS 인데 TOSS_SECRET_KEY 가 없습니다.');
   return env;
 }

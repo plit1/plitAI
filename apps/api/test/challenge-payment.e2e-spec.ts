@@ -73,6 +73,8 @@ describe('MODULE 03/04/09 챌린지·부스터 패스·결제 (e2e)', () => {
       const u = await signup(app);
       const a = await http().post('/api/v1/payments/orders').set(u.auth).send({ offeringId: 'is-open' }).expect(201);
       expect(a.body).toMatchObject({ amount: 29000, vatIncluded: true, reused: false, provider: 'MOCK' });
+      expect(a.body.orderNo).toMatch(/^[A-Za-z0-9_=-]{6,64}$/); // 토스 orderId 규칙
+      expect(a.body.customerKey).toMatch(/^plit_[A-Za-z0-9_-]{32}$/); // 회원 ID 비노출
       const b = await http().post('/api/v1/payments/orders').set(u.auth).send({ offeringId: 'is-open' }).expect(201);
       expect(b.body).toMatchObject({ orderNo: a.body.orderNo, reused: true });
     });

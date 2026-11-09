@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Order, Prisma } from '@prisma/client';
+import { createHmac } from 'crypto';
 import { AppError, Conflict, Forbidden, NotFound } from '../../common/errors';
 import { PrismaService, Tx } from '../../common/prisma.service';
 import { addDays, daysBetween } from '../../common/time';
@@ -10,6 +11,13 @@ import { PolicyService } from '../policy/policy.service';
 import { PAYMENT_PROVIDER, PaymentProvider, PgApproval, PgError } from './payment-provider';
 
 export const PRODUCT_CODE = 'AI_BOOSTER_PASS';
+/** 토스 orderId 규칙: 영문 대소문자·숫자·-_= 6~64자 (SDK 타입 문서) */
+export const ORDER_ID_RULE = /^[A-Za-z0-9_=-]{6,64}$/;
+/**
+ * 토스 customerKey: 유추 불가능한 고유값, 2~50자, 특수문자(-_=.@) 1개 이상 포함 (SDK 타입 문서).
+ * 회원 ID 를 그대로 쓰지 않고 서버 비밀값 HMAC 으로 파생 → 같은 회원은 항상 같은 키.
+ */
+export const customerKeyFor = (userId: string) => 'plit_' + createHmac('sha256', process.env.JWT_ACCESS_SECRET ?? '').update(`customer:${userId}`).digest('base64url').slice(0, 32);
 /** 패스 이용 종료: 시험일 + 30일 (합격 인증 기간 포함). decisions.md D-007 */
 export const PASS_GRACE_DAYS = 30;
 const json = (v: unknown) => JSON.parse(JSON.stringify(v ?? null)) as Prisma.InputJsonValue;
@@ -80,7 +88,7 @@ export class PaymentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private checkoutView(o: Order, reused: boolean) {
-    return { orderNo: o.orderNo, orderName: o.productName, amount: o.amount, vatIncluded: o.vatIncluded, provider: o.pgProvider, clientKey: process.env.TOSS_CLIENT_KEY || null, customerKey: o.userId, reused };
+    return { orderNo: o.orderNo, orderName: o.productName.slice(0, 100), amount: o.amount, vatIncluded: o.vatIncluded, provider: o.pgProvider, clientKey: process.env.TOSS_CLIENT_KEY || null, customerKey: customerKeyFor(o.userId), reused };
   }
 
   /**
