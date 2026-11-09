@@ -1,18 +1,23 @@
-# PLIT 플릿 · 자격증 챌린지 데모 v2.9
+# PLIT 플릿 · 자격증 취득부터 취업까지
 
-자격증을 깨는 가장 즐거운 방법, **PLIT(플릿)** 의 인터랙티브 웹 데모입니다.
-v2.9는 취업하기 · 창업하기 흐름을 포함합니다.
+주식회사 플릿랩스 PLIT 정식 서비스 모노레포.
 
-## 실행 방법
+| 경로 | 내용 |
+|---|---|
+| `index.html` | 데모 v2.9 (단일 HTML 빌드 결과물, 브라우저로 바로 실행 · GitHub Pages) — **보존 대상** |
+| `apps/api` | 백엔드 API — NestJS · Prisma · PostgreSQL |
+| `apps/web` | 웹 — Next.js · Tailwind |
+| `infra/terraform` | AWS 인프라 코드 |
+| `docs/` | 분석·설계·진행 기록 (`development-progress.md` 부터) |
 
-빌드가 끝난 단일 HTML 파일이라 별도 설치가 필요 없습니다.
+## 빠른 시작
+```bash
+pnpm install
+docker compose up -d postgres redis
+cd apps/api && cp .env.example .env && npx prisma migrate dev && pnpm seed && pnpm start:dev
+# 다른 터미널
+cd apps/web && pnpm dev   # http://localhost:3000
+```
+개발용 관리자: `admin@plit.local` / `PlitAdmin123!` (시드, 개발 DB 전용)
 
-- `index.html`을 브라우저로 열면 바로 실행됩니다.
-- 또는 GitHub Pages로 배포하면 URL로 공유할 수 있습니다.
-  (Settings → Pages → Branch: `main` / root)
-
-## 참고
-
-- `index.html`은 React + Vite로 빌드된 번들 결과물(약 4MB)입니다.
-  원본 컴포넌트 소스(.jsx 등)는 포함되어 있지 않습니다.
-- 폰트는 Google Fonts(Archivo, IBM Plex Sans KR, Noto Sans KR)에서 불러오므로 인터넷 연결이 필요합니다.
+테스트: `cd apps/api && pnpm test` · API 문서: http://localhost:4000/api/docs

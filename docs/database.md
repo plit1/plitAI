@@ -1,0 +1,38 @@
+# 데이터베이스 설계
+
+스키마 원본: `apps/api/prisma/schema.prisma` · 마이그레이션: `apps/api/prisma/migrations/`
+
+## ERD (요약)
+```
+User 1─* AuthIdentity          (provider, providerUserId) UNIQUE → 소셜 중복 가입 방지
+User 1─* RefreshToken          tokenHash UNIQUE, familyId
+User 1─* UserConsent           이력형 (철회도 새 행)
+User 1─* FavoriteCertification *─1 Certification 1─* ChallengeOffering
+                                                  1─* ExamRound
+User 1─* Enrollment *─1 ChallengeOffering        (userId, offeringId) UNIQUE
+Enrollment 1─1 StudyRecord · 1─1 PassVerification · 0..1─1 BoosterPass · 1─* EnrollmentPlanChange
+User 1─* StudySession (enrollmentId)
+User 1─* Order 1─* PaymentEvent (eventKey UNIQUE) · Order 0..1─1 BoosterPass
+User 1─* PointLedgerEntry (dedupeKey UNIQUE, reversesId UNIQUE) · User 1─1 PointAccount(잔액 캐시)
+User 1─* XpLedgerEntry (eventKey UNIQUE)  ← 포인트와 분리
+User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
+```
+
+## 정합성 규칙
+| 대상 | 방식 |
+|---|---|
+| 정원 | `UPDATE ... SET joined = joined+1 WHERE joined < cap` (영향 0행 → 마감) |
+| 중복 참여 | `Enrollment(userId, offeringId)` UNIQUE |
+| 포인트 동시성 | `PointAccount` 행 `SELECT ... FOR UPDATE` 후 원장 INSERT + 잔액 UPDATE |
+| 포인트 멱등 | `dedupeKey` UNIQUE (`welcome:`, `reward:{enrollmentId}`, `fail:`, `adjust:`, `reverse:`, `exchange:`) |
+| 결제 멱등 | `Order.paymentKey` UNIQUE + 조건부 선점, `PaymentEvent.eventKey` UNIQUE |
+| 보상 소급 금지 | `Enrollment.rewardSnapshot`, `policyVersion` |
+| 심사 경합 | `PassVerification` 행 `FOR UPDATE` + 상태 REVIEWING 확인 |
+
+## 개인정보
+- 수험번호: 뒤 4자리만 저장 · 증빙: 비공개 저장소 키만 저장
+- 탈퇴: email/password/nickname/MFA 익명화, 소셜 연결·관심 삭제. 결제·포인트 원장은 법정 보존(전자상거래법 5년) 후 파기 배치(미구현)
+- 테스트 계정: `User.isTest`, 테스트 주문: `Order.isTest`, 가상 포인트: `PointLedgerEntry.isVirtual`
+
+## 이후 추가 예정 테이블 (Phase 4~7)
+StudyRoom/ChatMessage/Report, CommunityPost/Comment/Like, QuizItem/QuizAttempt, Pet, Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, JobPosting 캐시, StartupProgram

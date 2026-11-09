@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: 243 245 250; --surface: 255 255 255; --ink: 14 21 48; --ink-soft: 74 83 115; --ink-mute: 128 136 163; --line: 221 225 236;
+  --cobalt: 36 67 245; --cobalt-deep: 22 48 196; --cobalt-tint: 230 234 255; --clear-deep: 98 128 0; --clear-tint: 242 252 210;
+  --risk: 226 64 48; --risk-tint: 253 231 228; --gold: 196 120 0; --gold-tint: 254 242 220; --mint: 14 147 132; --mint-tint: 230 247 244;
+  color-scheme: light;
+}
+body { @apply bg-paper text-ink font-sans antialiased; }
+.card { @apply rounded-2xl bg-surface border border-ink-line/70 shadow-[0_1px_2px_rgba(14,21,48,.04)]; }
+.btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-ink-line disabled:text-ink-mute focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cobalt; }
+.btn-primary { @apply btn bg-cobalt text-white hover:bg-cobalt-deep; }
+.btn-clear { @apply btn bg-clear text-night hover:brightness-95; }
+.btn-ghost { @apply btn bg-transparent text-ink-soft hover:bg-ink-line/40; }
+.input { @apply w-full rounded-xl border border-ink-line bg-surface px-4 py-3 text-sm outline-none focus:border-cobalt focus:ring-2 focus:ring-cobalt/20; }
+.label { @apply mb-1 block text-xs font-semibold text-ink-soft; }

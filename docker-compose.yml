@@ -1,0 +1,23 @@
+# 로컬 개발용. 운영 구성은 infra/terraform 참고.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: plit, POSTGRES_PASSWORD: plit, POSTGRES_DB: plit_dev }
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data, ./infra/docker/init-test-db.sql:/docker-entrypoint-initdb.d/init.sql:ro]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U plit"], interval: 5s, retries: 10 }
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    profiles: ["full"]
+    env_file: apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://plit:plit@postgres:5432/plit_dev?schema=public
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: staging
+    ports: ["4000:4000"]
+    depends_on: { postgres: { condition: service_healthy } }
+volumes:
+  pgdata:

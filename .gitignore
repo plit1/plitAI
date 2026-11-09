@@ -11,3 +11,4 @@ coverage/
 apps/api/uploads/
 infra/terraform/**/.terraform/
 infra/terraform/**/*.tfstate*
+apps/web/e2e/screenshots/
