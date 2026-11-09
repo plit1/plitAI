@@ -14,7 +14,7 @@ const login = (page, email, password, next) => loginAt(page, WEB, email, passwor
 async function signup(page, email, nick) {
   await page.goto(`${WEB}/signup`);
   await page.getByLabel('이메일').fill(email); await page.getByLabel(/비밀번호/).fill('abcd1234'); await page.getByLabel(/닉네임/).fill(nick);
-  await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL('**/finder');
+  await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL((u) => u.pathname === '/finder');
 }
 
 const browser = await chromium.launch();
@@ -29,7 +29,7 @@ try {
 
   // 1. MFA 미설정 관리자는 관리자 API 거부 → 설정 안내
   await login(admin, 'admin@plit.local', 'PlitAdmin123!', '/admin');
-  await admin.waitForURL('**/admin');
+  await admin.waitForURL((u) => u.pathname === '/admin');
   await admin.getByText('2단계 인증(OTP) 로그인 후 이용할 수 있어요').first().waitFor();
   step(1, '관리자 MFA 미설정 → 관리자 API 403 + 설정 안내');
 
@@ -44,7 +44,7 @@ try {
   await login(admin, 'admin@plit.local', 'PlitAdmin123!', '/admin');
   await admin.getByLabel('인증 앱의 6자리 코드').fill(totp(secret, 1));
   await admin.getByRole('button', { name: '인증하고 로그인' }).click();
-  await admin.waitForURL('**/admin');
+  await admin.waitForURL((u) => u.pathname === '/admin');
   await admin.getByText('활성 회원').waitFor();
   step(2, 'TOTP 등록 → 비밀번호+OTP 로그인 → 관리자 대시보드');
 

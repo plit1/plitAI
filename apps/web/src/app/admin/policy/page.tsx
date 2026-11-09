@@ -10,6 +10,7 @@ interface Policy { version: string; values: Record<string, number | boolean | st
 const NUM: [string, string, (n: number) => string][] = [
   ['passPrice', '부스터 패스 가격', won], ['togetherReward', '플릿런 합격 보상', pts], ['boosterReward', '부스터 합격 보상', pts],
   ['refundDays', '환불 가능 기간(일)', String], ['welcomePoints', '가입 축하 포인트', pts], ['referralReward', '친구 초대 보상', pts],
+  ['pointExpiryDays', '포인트 유효기간(일, 0=무기한)', String],
   ['openRunTarget', '오픈런 목표 인원', String], ['openRunDailyLimit', '오픈런 하루 요청 한도', String],
 ];
 

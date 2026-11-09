@@ -93,3 +93,19 @@
 ### WebSocket `/study-room` (socket.io)
 - 연결: `io(API_ORIGIN + '/study-room', { auth: { token: accessToken } })` — 인증 실패 시 `connect_error: UNAUTHORIZED`
 - `join {roomId}` → ack `{ok, data:{summary, messages}}` / `send {roomId, body}` → ack `{ok, data|code,message}` / 서버 → `message`
+
+## Phase 5 추가 (세션 4)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| GET | /me/points/expiring | 회원 | 30일 내 만료 예정 로트·합계 |
+| POST | /admin/points/expire | SUPER_ADMIN | 만료 배치 수동 실행 (1시간 주기 자동) |
+| GET | /admin/verifications/:id/evidence | OPERATOR | 증빙 원본 (no-store·nosniff·CSP sandbox), 열람 감사 로그 |
+| POST | /enrollments/:id/verification `{…, examRoundId?}` | 본인 | 400 INVALID_EXAM_ROUND |
+| GET | /admin/settlement/revenue?from&to&by=day|month&includeTest | OPERATOR | 결제·환불·순매출·공급가·부가세 |
+| GET | /admin/settlement/revenue.csv | OPERATOR | CSV 첨부 |
+| GET | /admin/settlement/points?from&to&by | OPERATOR | 유형별 집계, 미사용 잔액·실제 가치 포인트 |
+| POST | /admin/settlement/reconcile | SUPER_ADMIN | 결제 대사 (15분 주기 자동) |
+
+### 토스 결제위젯 흐름 (웹)
+`POST /payments/orders` → `loadTossPayments(clientKey)` → `widgets({customerKey})` → `setAmount({currency:'KRW', value})` → `renderPaymentMethods/renderAgreement` → `requestPayment({orderId, orderName, successUrl, failUrl})`
+→ successUrl `?paymentType&amount&orderId&paymentKey` → `POST /payments/confirm` (서버가 금액 재검증) / failUrl `?code&message&orderId`

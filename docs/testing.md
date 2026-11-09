@@ -5,8 +5,15 @@
 |---|---|---|
 | API 단위 + 통합(E2E) | `cd apps/api && pnpm test` | 실제 PostgreSQL `plit_test` (이름에 test 없으면 실행 거부) |
 | 웹 타입체크·빌드 | `pnpm --filter @plit/web typecheck && pnpm --filter @plit/web build` | |
-| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
+| 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow phase5-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
 | CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
+
+## 세션 4 실행 결과 (Phase 5)
+- API: **27 suites / 179 tests 통과** (세션 3 대비 +36) — 만료 계산 5·만료 e2e 6, 저장소 9(S3 는 SDK 모의 객체), 증빙 열람 3, 정산 규칙 4·정산/대사 e2e 5, 토스 규칙 4
+- 브라우저 `phase5-flow`: 주문 → successUrl 금액 위변조 거절 → 정상 승인·패스 → failUrl → 환불 → 만료 예정 안내 → 증빙 제출·관리자 열람(감사 로그) → 정산(테스트 제외/포함)·CSV 합계 **통과**
+- 미검증: 토스 위젯 렌더·실결제(도메인 차단), 실제 S3 업로드
+- 발견·수정 결함: (1) 토스 customerKey 규칙 위반(회원 ID 사용) (2) 정책 발행 시 일부 숫자 항목만 검증 (3) E2E 헬퍼 경합: `waitForURL('**/admin')` 이 `/login?next=/admin` 에도 즉시 일치 → OTP 로그인 요청이 중단되는 간헐 실패 → 경로명 비교로 수정
+- 4개 흐름(core·phase3·phase4·phase5) 전체 재실행 **36단계 모두 통과**
 
 ## 세션 3 실행 결과 (Phase 4)
 - API: **20 suites / 143 tests 통과** (세션 2 대비 +48) — QUICK TEST 6(+채점·출제 5), 전략 규칙 5, 코칭 규칙 6, 전략·코칭 e2e 7(가짜 Claude: 요청 형태·비용·숫자 검증·거절·오류·일일 한도), 커뮤니티 9, 채팅 가드 4, 스터디룸 socket.io 6(실제 소켓 연결)

@@ -18,7 +18,7 @@ const newPage = async (opts) => { const p = await (await browser.newContext(opts
 async function signup(page, email, nick) {
   await page.goto(`${WEB}/signup`);
   await page.getByLabel('이메일').fill(email); await page.getByLabel(/비밀번호/).fill('abcd1234'); await page.getByLabel(/닉네임/).fill(nick);
-  await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL('**/finder');
+  await page.getByLabel('전체 동의').check(); await page.getByRole('button', { name: '가입하기' }).click(); await page.waitForURL((u) => u.pathname === '/finder');
 }
 try {
   // 1. A: 부스터 패스 결제 → 대시보드

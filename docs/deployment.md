@@ -11,7 +11,7 @@
 1. 상태 저장 S3 버킷·DynamoDB 락 생성 후 `main.tf` backend 주석 해제
 2. `cd infra/terraform/staging && terraform init && terraform plan -out plan.out` → 예상 비용 검토 (대략 월 NAT·ALB·RDS·Fargate 합산) → **승인**
 3. `terraform apply plan.out`
-4. Secrets Manager `plit-staging/api` 에 `TOSS_SECRET_KEY`(test_sk_) 입력
+4. Secrets Manager `plit-staging/api` 에 `TOSS_SECRET_KEY`(테스트 키) 입력, 태스크 환경변수 `TOSS_CLIENT_KEY`는 결제위젯용 `test_gck_` 키 (live 키는 production 에서만 기동 허용)
 5. 이미지: `docker build -f apps/api/Dockerfile -t <ecr>:<sha> . && docker push`
 6. 마이그레이션: 같은 이미지로 ECS 일회성 태스크 `npx prisma migrate deploy`
 7. `terraform apply -var api_image_tag=<sha>` 또는 ECS 서비스 업데이트

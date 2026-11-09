@@ -47,5 +47,10 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - `StudyRoom`(=offeringId, closeAt, purgedAt, autoShare) · `ChatMessage` · `ChatHold`(messageId UNIQUE, holdUntil) · `NoticeAck`(userId,version)
 - 마이그레이션 `20261109133517_phase4_quiz_community_studyroom`
 
+## Phase 5 추가
+- `Order.refundedAt` (정산: 환불일 기준), `PointLedgerEntry.expiresAt` 사용 시작 (EARN 자동 설정), EXPIRE 항목 `refType=POINT_ENTRY, refId=로트, dedupeKey=expire:{로트}`
+- `PassVerification.examRoundId` 사용 시작
+- 마이그레이션 `20261109142022_order_refunded_at`
+
 ## 이후 추가 예정 테이블 (Phase 4~7)
 StudyRoom/ChatMessage/Report, CommunityPost/Comment/Like, QuizItem/QuizAttempt, Pet, Referral, AdCampaign/AdEvent, MallProduct/MallOrder/Coupon, JobPosting 캐시, StartupProgram

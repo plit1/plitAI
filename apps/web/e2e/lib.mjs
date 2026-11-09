@@ -16,7 +16,7 @@ export async function login(page, web, email, password, next) {
 /** 새 DB 의 시드 관리자: MFA 미등록 → 등록 → 재로그인(OTP). 반환: TOTP 시크릿 */
 export async function adminWithMfa(page, web, email = 'admin@plit.local', password = 'PlitAdmin123!') {
   await login(page, web, email, password, '/my/account');
-  await page.waitForURL('**/my/account');
+  await page.waitForURL((u) => u.pathname === '/my/account');
   await page.getByRole('button', { name: '설정' }).click();
   const secret = (await page.getByLabel('설정 키').innerText()).replace(/\s/g, '');
   await page.getByPlaceholder('앱에 표시된 6자리').fill(totp(secret));
@@ -26,6 +26,6 @@ export async function adminWithMfa(page, web, email = 'admin@plit.local', passwo
   await login(page, web, email, password, '/admin');
   await page.getByLabel('인증 앱의 6자리 코드').fill(totp(secret, 1));
   await page.getByRole('button', { name: '인증하고 로그인' }).click();
-  await page.waitForURL('**/admin');
+  await page.waitForURL((u) => u.pathname === '/admin');
   return secret;
 }

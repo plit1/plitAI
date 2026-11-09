@@ -3,9 +3,30 @@
 > 다음 세션은 이 파일 → `development-roadmap.md` → `decisions.md` 순서로 확인.
 
 ## 현재 위치
-- 브랜치: `feature/phase4-learning-ai-community` (develop 에서 분기). 이전 Phase 브랜치는 develop 에 반영됨
+- 브랜치: `feature/phase5-payment-reward` (develop 에서 분기). 이전 Phase 브랜치는 develop 에 반영됨
 - GitHub `plit1/plitAI` 에 `develop`, `feature/phase0-2-foundation` push 완료, CI 통과 (API 51/51, web build). 태그 `demo-v2.9-stable` 은 프록시 오류로 push 실패 → 로컬에만 존재 (main@0bf2531 과 동일 커밋)
-- 완료 Phase: 0, 1, 2, 3, **4** / 진행: 5 일부(결제·인증·원장 백엔드 선행)
+- 완료 Phase: 0, 1, 2, 3, 4, **5**(외부 키·계약 대기 항목 제외)
+
+## 세션 4 (2026-11-09) — Phase 5
+### 완료
+- 포인트 유효기간·만료: 정책 pointExpiryDays(기본 365일, 잠정), 만료 빠른 로트부터 소진(FIFO), 만료 배치(1시간 주기·수동·재실행/동시 안전), 30일 내 만료 예정 안내
+- 증빙 저장소: ObjectStorage(로컬/S3, SSE-KMS, 경로 탈출 차단), 운영은 S3 강제, 심사자 증빙 열람(보안 헤더·열람마다 감사 로그), 합격 인증에 공식 시험 회차 연결
+- 정산: 일/월 매출(승인일·환불일 기준, 공급가/부가세), CSV(엑셀 BOM·수식 주입 방지), 포인트 유형별·미사용 잔액, 결제 대사(결과 불명 주문 확정·24시간 미결제 만료, 15분 주기)
+- 토스 결제위젯 v2: SDK 타입 문서 기준 구현(loadTossPayments → widgets → setAmount → render → requestPayment), success/fail 페이지, customerKey HMAC 파생, 결제 키 환경 검증(gck, live 키는 production 전용)
+- 화면: 결제 내역·환불 요청, 포인트 만료 표시, 관리자 정산·CSV·대사, 증빙 보기, 정책 유효기간
+- 버그 수정: customerKey 에 회원 ID 사용(토스 규칙 위반 — 위젯 초기화 실패 예정이던 문제), 정책 발행이 일부 숫자 항목만 검증하던 문제
+
+### 기능 상태 (세션 4 변경분)
+| 기능 | 상태 |
+|---|---|
+| 포인트 만료 | 개발 및 테스트 완료 (유효기간 365일은 사업·법무 확인 필요) |
+| 증빙 S3 저장 | 개발 완료 / S3 어댑터는 SDK 모의 객체로 요청 형태만 검증 — 실제 S3 미검증 (AWS 승인 대기) |
+| 심사자 증빙 열람·감사 로그 | 개발 및 테스트 완료 |
+| 정산·매출 리포트·CSV | 개발 및 테스트 완료 (부가세 반올림·매출 인식 기준은 세무 확인 필요) |
+| 결제 대사 | 개발 및 테스트 완료 (MOCK PG) |
+| 토스 결제위젯 | 개발 완료 / **실연동 미검증** — 이 세션은 js.tosspayments.com·api.tosspayments.com·docs 접근 차단. 리다이렉트 이후 서버 흐름은 E2E 검증 완료 |
+| 증빙 보관 기간·파기 | 미구현 (보관 기간 정책 결정 필요) |
+| 포인트 사용처(포인트몰) | 미구현 (Phase 7) |
 
 ## 세션 3 (2026-11-09) — Phase 4
 ### 완료
@@ -89,9 +110,9 @@
 | CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. `feature/phase4-learning-ai-community` → `develop` 반영 (CI 확인 후)
-2. Phase 5 마무리: 토스 결제위젯(테스트 키 도착 시), 증빙 S3 저장, 포인트 만료, 정산·매출 리포트
-3. Phase 6: 게이미피케이션(펫 상태·WIN/DRAW/LOSE·배지), 취업(고용24 프록시 — 키·접근 필요), 창업 정보
-4. 스터디룸 확장: Redis adapter + Redis 기반 속도 가드, 공부 완료 공유 이벤트, 자료 업로드
-5. 모바일 내비게이션 메뉴
+1. `feature/phase5-payment-reward` → `develop` 반영 (CI 확인 후)
+2. 외부 키 도착 시: 토스 테스트 키(test_gck/test_sk)로 위젯 실결제 테스트, S3 버킷(AWS 승인 후) 업로드 확인
+3. Phase 6: 게이미피케이션(펫·XP 레벨·WIN/DRAW/LOSE·배지), 취업(고용24 — 키·접근 필요), 창업 정보
+4. Phase 7: 친구 초대 보상, 포인트몰(테스트 공급사), 광고·제휴, 알림(오픈런 개설·포인트 만료 예정)
+5. 결정 필요: 포인트 유효기간, 증빙 보관 기간, 부가세 반올림, 환불 범위(학습 이용 후)
 6. 정리: E2E 가 만든 `plit_e2e_*` DB (자동 삭제 안 함)

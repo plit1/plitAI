@@ -31,7 +31,7 @@ try {
   await page.getByLabel(/닉네임/).fill('이투이');
   await page.getByLabel('전체 동의').check();
   await page.getByRole('button', { name: '가입하기' }).click();
-  await page.waitForURL('**/finder');
+  await page.waitForURL((u) => u.pathname === '/finder');
   await page.getByText('3,500P').first().waitFor();
   step(1, '회원가입 + 로그인 상태 유지 + 가입축하 3,500P');
 
