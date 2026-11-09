@@ -17,7 +17,7 @@ for FLOW in "${FLOWS[@]}"; do
   DB="plit_e2e_${STAMP}_${FLOW//-/_}"
   URL="postgresql://plit:plit@localhost:5432/${DB}"
   psql "$PG" -qc "CREATE DATABASE ${DB}"
-  (cd "$ROOT/apps/api" && DATABASE_URL="$URL?schema=public" npx prisma migrate deploy >/dev/null && DATABASE_URL="$URL?schema=public" npx ts-node --transpile-only prisma/seed.ts >/dev/null)
+  (cd "$ROOT/apps/api" && DATABASE_URL="$URL?schema=public" npx prisma migrate deploy >/dev/null && DATABASE_URL="$URL?schema=public" node dist/seed/seed.js >/dev/null)
   pkill -f "node dist/main.js" || true; sleep 1
   (cd "$ROOT/apps/api" && DATABASE_URL="$URL?schema=public" NODE_ENV=staging exec node dist/main.js) > "$LOG/plit-e2e-api-${FLOW}.log" 2>&1 < /dev/null &
   for i in $(seq 1 30); do curl -sf localhost:4000/api/v1/health >/dev/null && break; sleep 1; done

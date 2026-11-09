@@ -18,7 +18,7 @@
 ## 로컬 실행
 ```
 service postgresql start            # 또는 docker compose up -d postgres redis
-cd apps/api && cp .env.example .env && npx prisma migrate dev && pnpm seed && pnpm start:dev
+cd apps/api && cp .env.example .env && npx prisma migrate dev && pnpm seed && pnpm start:dev   # 시드: src/seed/seed.ts (빌드 후 dist/seed/seed.js)
 cd apps/web && pnpm dev             # http://localhost:3000 (/api 는 :4000 으로 프록시)
 ```
 테스트: `cd apps/api && pnpm test` (plit_test DB 필요, 이름에 test 없으면 실행 거부) /

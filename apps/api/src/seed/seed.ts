@@ -1,13 +1,17 @@
 /**
- * 개발/스테이징 시드. 데모 v2.9 의 자격증 50종(X5)과 회차 생성 규칙(Ys)을 그대로 재현한다.
- * 운영 DB 에서는 자격증·정책만 넣고 테스트 계정은 만들지 않는다 (SEED_DEV_USERS=false).
+ * 시드 (dist/seed/seed.js 로 함께 빌드 — 컨테이너에서 `node dist/seed/seed.js` 실행 가능).
+ * 데모 v2.9 의 자격증 50종(X5)과 회차 생성 규칙(Ys)을 그대로 재현한다.
+ * - 운영(production): 자격증·회차·정책만. 데모 콘텐츠·개발 계정 금지
+ * - 스테이징: + 데모 공고·지원사업·예시 문항 (SEED_DEMO_CONTENT=false 로 끔). 개발 계정은 만들지 않음
+ * - 로컬·테스트: + 개발 계정(admin@plit.local)
  */
 import { ChallengeType, Prisma, PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import raw from './seed-data/certifications.raw.json';
-import demoQuiz from './seed-data/demo-quiz-items.json';
-import demoJS from '../src/data/demo-jobs-startup.json';
-import { DEFAULT_POLICY, DEFAULT_POLICY_VERSION } from '../src/modules/policy/policy.defaults';
+import raw from '../data/certifications.raw.json';
+import demoQuiz from '../data/demo-quiz-items.json';
+import demoJS from '../data/demo-jobs-startup.json';
+import { DEFAULT_POLICY, DEFAULT_POLICY_VERSION } from '../modules/policy/policy.defaults';
+import { seedPlan } from './seed-plan';
 
 const prisma = new PrismaClient();
 type Row = [string, string, string, string, ChallengeType, string, number, string, string];
@@ -25,6 +29,8 @@ const rc = (i: number, k: number) => { const n = Math.sin(i * 9301 + k * 49297) 
 const day = (base: Date, n: number) => new Date(base.getTime() + n * 86400000);
 
 async function main() {
+  const plan = seedPlan(process.env);
+  console.log(`seed plan: ${JSON.stringify(plan)}`);
   const base = new Date(new Date().toISOString().slice(0, 10) + 'T15:00:00Z'); // KST 자정 기준일
   const rows = raw as Row[];
   for (const [i, [id, name, field, qualType, challengeType, issuer, difficulty, tagline, passRule]] of rows.entries()) {
@@ -47,7 +53,7 @@ async function main() {
   if (!(await prisma.policyVersion.findFirst({ where: { isCurrent: true } }))) await prisma.policyVersion.update({ where: { id: DEFAULT_POLICY_VERSION }, data: { isCurrent: true } });
 
   // 데모 v2.9 QUICK TEST 예시 20문항 (산업안전기사) — 공식 기출 아님, isSample 로 화면에 고지
-  if ((await prisma.quizItem.count({ where: { isSample: true } })) === 0) {
+  if (plan.demoContent && (await prisma.quizItem.count({ where: { isSample: true } })) === 0) {
     await prisma.quizItem.createMany({
       data: (demoQuiz as { subject: string; prompt: string; options: string[]; answer: number }[]).map((q) => ({
         certId: 'industrial-safety', subject: q.subject, prompt: q.prompt, options: q.options, answer: q.answer,
@@ -57,7 +63,7 @@ async function main() {
   }
 
   // 데모 채용공고·지원사업 (가상 회사·기관, isDemo 표시) — 운영 DB 에는 넣지 않음
-  if (process.env.NODE_ENV !== 'production' && process.env.SEED_DEMO_CONTENT !== 'false') {
+  if (plan.demoContent) {
     type JobRow = [string, string, string, string, string, string, string | null, string[], string[], string[], string | null, number, number, string];
     for (const [id, co, title, loc, emp, exp, edu, req, pref, cats, sal, postD, expD, desc] of demoJS.JB_DEMO_RAW as unknown as JobRow[]) {
       const data = { companyName: co, title, description: desc, workLocation: loc, region: loc.split(' ')[0], employmentType: emp, experience: exp, education: edu, requiredCerts: req, preferredCerts: pref, categories: cats, salary: sal, postedAt: day(base, postD), expiresAt: day(base, expD), isDemo: true };
@@ -70,7 +76,7 @@ async function main() {
     }
   }
 
-  if (process.env.SEED_DEV_USERS !== 'false' && process.env.NODE_ENV !== 'production') {
+  if (plan.devUsers) {
     const pw = await bcrypt.hash('PlitAdmin123!', 12);
     for (const [email, nickname, role, code] of [['admin@plit.local', '최고관리자', 'SUPER_ADMIN', 'ADMIN001'], ['operator@plit.local', '운영자', 'OPERATOR', 'OPER0001']] as const) {
       await prisma.user.upsert({ where: { email }, create: { email, nickname, role, passwordHash: pw, referralCode: code, emailVerified: true, isTest: true }, update: {} });
@@ -79,4 +85,4 @@ async function main() {
   console.log(`seed: certifications=${rows.length}, offerings=${await prisma.challengeOffering.count()}, jobs=${await prisma.jobPosting.count()}, programs=${await prisma.startupProgram.count()}, policy=${DEFAULT_POLICY_VERSION}`);
 }
 
-main().finally(() => prisma.$disconnect());
+main().catch((e) => { console.error(e); process.exitCode = 1; }).finally(() => prisma.$disconnect());

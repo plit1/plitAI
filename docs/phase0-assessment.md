@@ -57,7 +57,7 @@
 
 | 도메인 | 데모 구현 내용 | 서버 이관 시 유지할 규칙 |
 |---|---|---|
-| 자격증 | 50종 시드(`X5`): id·이름·분야(9개)·자격유형(국가기술/국가전문/국가자격/국가공인 민간/민간/어학)·챌린지유형(exam/edu_exam/completion/score)·시행기관·난이도·태그라인·합격기준·과목 | 그대로 DB 시드로 이관 (`apps/api/prisma/seed-data/certifications.json`) |
+| 자격증 | 50종 시드(`X5`): id·이름·분야(9개)·자격유형(국가기술/국가전문/국가자격/국가공인 민간/민간/어학)·챌린지유형(exam/edu_exam/completion/score)·시행기관·난이도·태그라인·합격기준·과목 | 그대로 DB 시드로 이관 (`apps/api/src/data/certifications.raw.json`) |
 | 챌린지 회차(Offering) | 자격증당 회차(`{certId}-2027-1`), 모집마감·시험일·기간, FREE/PREMIUM 각 정원 300, 상태 open/closed | 정원·마감·중복참여 검사를 트랜잭션으로 |
 | 참여(Enrollment) | 마감/중복/정원/PREMIUM은 유효 패스 필수(`PASS_REQUIRED`), `rewardSnapshot`·`policyVersion` 기록(정책 소급 없음) | 동일 |
 | 상품/정책 | FREE=플릿런(0원, 합격보상 2,000P), PREMIUM=플릿 부스터 패스(29,000원 VAT포함, 시험 회차당 1회, 보상 20,000P), 재도전 비활성, 환불 7일 | `policy` 테이블에서 관리자 변경 가능 |

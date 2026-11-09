@@ -14,6 +14,10 @@
 4. Secrets Manager `plit-staging/api` 에 `TOSS_SECRET_KEY`(테스트 키) 입력, 태스크 환경변수 `TOSS_CLIENT_KEY`는 결제위젯용 `test_gck_` 키 (live 키는 production 에서만 기동 허용)
 5. 이미지: `docker build -f apps/api/Dockerfile -t <ecr>:<sha> . && docker push`
 6. 마이그레이션: 같은 이미지로 ECS 일회성 태스크 `npx prisma migrate deploy`
+6-1. 시드: 같은 이미지로 일회성 태스크 `node dist/seed/seed.js` (태스크 환경 `NODE_ENV=staging` 필수 — 이미지 기본값은 production)
+   - 스테이징: 자격증·회차·정책 + **데모 채용공고·창업 지원사업·예시 문항**(화면에 '데모' 표시). 개발 계정(admin@plit.local)은 만들지 않음 → 첫 관리자 계정은 별도 절차로 생성
+   - 데모 콘텐츠를 빼려면 `SEED_DEMO_CONTENT=false`. 운영(production)은 데모·개발 계정을 넣지 않음 (D-038)
+   - 반복 실행 안전(upsert)
 7. `terraform apply -var api_image_tag=<sha>` 또는 ECS 서비스 업데이트
 
 ## 웹(Next.js) 호스팅
