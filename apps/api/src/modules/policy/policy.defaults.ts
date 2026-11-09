@@ -14,6 +14,7 @@ export interface PolicyValues {
   referralReward: number; // 친구 초대 참여 확정 보상
   freeCapDefault: number;
   premiumCapDefault: number;
+  pointExpiryDays: number; // 적립 포인트 유효기간 (0 = 만료 없음)
   openRunTarget: number; // 오픈런 개설 심사 기준 관심 인원
   openRunDailyLimit: number; // 회원당 하루 신규 요청 수
   analysisXp: number;
@@ -36,6 +37,7 @@ export const DEFAULT_POLICY: PolicyValues = {
   referralReward: 1000,
   freeCapDefault: 300,
   premiumCapDefault: 300,
+  pointExpiryDays: 365,
   openRunTarget: 200,
   openRunDailyLimit: 3,
   analysisXp: 15,

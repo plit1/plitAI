@@ -1,8 +1,10 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PointEntryType, PointLedgerEntry } from '@prisma/client';
 import { AppError, NotFound } from '../../common/errors';
 import { PrismaService, Tx } from '../../common/prisma.service';
+import { PolicyService } from '../policy/policy.service';
+import { dueExpirations, upcomingExpirations } from './expiry';
 
 export interface PostEntryInput {
   userId: string;
@@ -14,6 +16,7 @@ export interface PostEntryInput {
   refId?: string;
   expiresAt?: Date | null;
   createdById?: string;
+  /** EARN 에 미지정이면 정책 pointExpiryDays 로 만료일 자동 설정. null 은 만료 없음 */
   /** 잔액이 음수가 되는 차감 허용 여부 (환불 회수 등 관리자 처리 전용) */
   allowNegative?: boolean;
 }
@@ -25,8 +28,16 @@ export interface PostEntryInput {
  *  - dedupeKey 유니크 → 같은 사건은 몇 번 호출돼도 1건만 반영 (기존 행 반환)
  */
 @Injectable()
-export class PointsService {
-  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {}
+export class PointsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger('Points');
+  private timer?: NodeJS.Timeout;
+  constructor(private readonly prisma: PrismaService, private readonly config: ConfigService, private readonly policy: PolicyService) {}
+
+  onModuleInit() {
+    if (process.env.NODE_ENV === 'test') return;
+    this.timer = setInterval(() => this.expireDue().catch((e) => this.logger.error(e)), 60 * 60_000); // 1시간마다 만료 처리
+  }
+  onModuleDestroy() { if (this.timer) clearInterval(this.timer); }
 
   private get rewardsLive(): boolean { return this.config.get('REWARDS_LIVE') === true; }
 
@@ -41,6 +52,11 @@ export class PointsService {
     const raced = await tx.pointLedgerEntry.findUnique({ where: { dedupeKey: input.dedupeKey } });
     if (raced) return { entry: raced, duplicate: true };
 
+    let expiresAt = input.expiresAt;
+    if (expiresAt === undefined && input.type === 'EARN' && input.amount > 0) {
+      const days = (await this.policy.current(tx)).values.pointExpiryDays;
+      expiresAt = days > 0 ? new Date(Date.now() + days * 86400000) : null;
+    }
     const balanceAfter = account.balance + input.amount;
     if (balanceAfter < 0 && !input.allowNegative) {
       throw new AppError('INSUFFICIENT_POINTS', `${(-balanceAfter).toLocaleString('ko-KR')}P가 부족해요.`, HttpStatus.UNPROCESSABLE_ENTITY, { balance: account.balance, required: -input.amount });
@@ -48,7 +64,7 @@ export class PointsService {
     const entry = await tx.pointLedgerEntry.create({
       data: {
         userId: input.userId, type: input.type, amount: input.amount, balanceAfter, reason: input.reason,
-        dedupeKey: input.dedupeKey, refType: input.refType, refId: input.refId, expiresAt: input.expiresAt ?? null,
+        dedupeKey: input.dedupeKey, refType: input.refType, refId: input.refId, expiresAt: expiresAt ?? null,
         isVirtual: !this.rewardsLive, createdById: input.createdById,
       },
     });
@@ -67,6 +83,35 @@ export class PointsService {
     });
     if (!result.duplicate) await tx.pointLedgerEntry.update({ where: { id: result.entry.id }, data: { reversesId: orig.id } });
     return result;
+  }
+
+  private ledgerRows(db: Tx | PrismaService, userId: string) {
+    return db.pointLedgerEntry.findMany({ where: { userId }, select: { id: true, type: true, amount: true, expiresAt: true, createdAt: true, reversesId: true, refType: true, refId: true }, orderBy: { createdAt: 'asc' } });
+  }
+
+  /**
+   * 만료 배치: 만료일이 지난 적립 로트의 남은 금액을 EXPIRE(음수)로 기록.
+   * dedupeKey expire:{로트ID} 로 재실행·동시 실행에도 1회만. 사용자 단위 트랜잭션 + 계정 행 잠금(post).
+   */
+  async expireDue(now = new Date()) {
+    const candidates = await this.prisma.pointLedgerEntry.findMany({ where: { amount: { gt: 0 }, expiresAt: { lte: now } }, select: { userId: true }, distinct: ['userId'] });
+    let entries = 0, points = 0;
+    for (const { userId } of candidates) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1 FROM "PointAccount" WHERE "userId" = ${userId} FOR UPDATE`;
+        for (const lot of dueExpirations(await this.ledgerRows(tx, userId), now)) {
+          const r = await this.post(tx, { userId, type: 'EXPIRE', amount: -lot.remaining, reason: `포인트 유효기간 만료 (${lot.expiresAt!.toISOString().slice(0, 10)})`, dedupeKey: `expire:${lot.id}`, refType: 'POINT_ENTRY', refId: lot.id });
+          if (!r.duplicate) { entries++; points += lot.remaining; }
+        }
+      });
+    }
+    if (entries) this.logger.log(`expired ${entries} lots, ${points}P`);
+    return { users: candidates.length, entries, points };
+  }
+
+  async expiringSoon(userId: string, withinDays = 30) {
+    const lots = upcomingExpirations(await this.ledgerRows(this.prisma, userId), new Date(), withinDays);
+    return { withinDays, total: lots.reduce((s, l) => s + l.remaining, 0), lots: lots.map((l) => ({ entryId: l.id, remaining: l.remaining, expiresAt: l.expiresAt })) };
   }
 
   async balance(userId: string) {

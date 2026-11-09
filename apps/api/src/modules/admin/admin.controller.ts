@@ -9,7 +9,7 @@ import { AppError, NotFound } from '../../common/errors';
 import { PrismaService } from '../../common/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { PointsService } from '../points/points.service';
-import { FEATURES, PolicyValues } from '../policy/policy.defaults';
+import { DEFAULT_POLICY, FEATURES, PolicyValues } from '../policy/policy.defaults';
 import { PolicyService } from '../policy/policy.service';
 import { AuditService } from './audit.service';
 import { MfaService } from '../auth/mfa.service';
@@ -141,8 +141,11 @@ export class AdminController {
   @Roles('SUPER_ADMIN') @Post('policy')
   async publishPolicy(@CurrentUser() a: AuthUser, @Body() dto: PolicyDto, @Req() req: Request) {
     const v = dto.values;
-    for (const k of ['passPrice', 'togetherReward', 'boosterReward', 'refundDays', 'welcomePoints', 'referralReward'] as const) {
-      if (v[k] !== undefined && (!Number.isInteger(v[k]) || (v[k] as number) < 0)) throw new AppError('INVALID_POLICY', `${k} 는 0 이상의 정수여야 해요.`);
+    const defaults = DEFAULT_POLICY as unknown as Record<string, unknown>;
+    for (const [k, val] of Object.entries(v)) {
+      if (!(k in defaults)) throw new AppError('INVALID_POLICY', `알 수 없는 정책 항목이에요: ${k}`);
+      if (typeof defaults[k] === 'number' && (!Number.isInteger(val) || (val as number) < 0)) throw new AppError('INVALID_POLICY', `${k} 는 0 이상의 정수여야 해요.`);
+      if (typeof defaults[k] === 'boolean' && typeof val !== 'boolean') throw new AppError('INVALID_POLICY', `${k} 는 true/false 여야 해요.`);
     }
     if (v.freeFeatures && !v.freeFeatures.every((f) => (FEATURES as readonly string[]).includes(f))) throw new AppError('INVALID_POLICY', '알 수 없는 기능 코드가 있어요.');
     if (await this.prisma.policyVersion.findUnique({ where: { id: dto.version } })) throw new AppError('POLICY_VERSION_EXISTS', '이미 있는 정책 버전이에요.');
