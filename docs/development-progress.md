@@ -4,7 +4,7 @@
 
 ## 현재 위치
 - 브랜치: `feature/phase0-2-foundation` (develop 에서 분기), 기준 태그 `demo-v2.9-stable`
-- **GitHub push 미완료**: 이 세션은 `plit1/plitai` 읽기 전용 접근만 허용됨. 로컬 커밋만 존재 → 다음 세션 시작 전 push 권한 연결 필요
+- GitHub `plit1/plitAI` 에 `develop`, `feature/phase0-2-foundation` push 완료, CI 통과 (API 51/51, web build). 태그 `demo-v2.9-stable` 은 프록시 오류로 push 실패 → 로컬에만 존재 (main@0bf2531 과 동일 커밋)
 - 완료 Phase: 0 (분석), 1 (설계 문서), 2 (기반) / 진행: 3 일부, 5 일부(결제·인증·원장 백엔드 선행)
 
 ## 세션 1 (2026-11-09)
@@ -40,10 +40,10 @@
 | 스터디룸·커뮤니티·게이미피케이션 화면·취업·창업·광고·포인트몰 | 미구현 (데모 로직 분석 완료) |
 | Docker 이미지 | 개발 완료 / 테스트 미진행 |
 | Terraform 스테이징 | 개발 완료 / 테스트 미진행 (plan 미실행), apply 는 승인 필요 |
-| CI | 개발 완료 / 테스트 미진행 (GitHub 미푸시) |
+| CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. GitHub push 권한 연결 → `develop`, `feature/phase0-2-foundation` push → CI 실행 확인
+1. 태그 `demo-v2.9-stable` push 재시도, `develop` → `main` PR 여부 결정
 2. `plitAI/plitAI`(private)에 데모 원본 소스(.jsx)가 있는지 확인 — 있으면 웹 재구현 전략 변경 (decisions D-002)
 3. Phase 3 마무리: 관리자 정책·회차 화면, 계정 연결 API, 관리자 MFA(TOTP), 챌린지 개설 요청
 4. Phase 4: QUICK TEST 문항 은행, 스터디룸(socket.io + Redis), 커뮤니티, AI 전략(Claude API, 사용량 제한·비용 로그)

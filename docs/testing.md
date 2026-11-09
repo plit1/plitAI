@@ -6,7 +6,7 @@
 | API 단위 + 통합(E2E) | `cd apps/api && pnpm test` | 실제 PostgreSQL `plit_test` (이름에 test 없으면 실행 거부) |
 | 웹 타입체크·빌드 | `pnpm --filter @plit/web typecheck && pnpm --filter @plit/web build` | |
 | 브라우저 핵심 흐름 | API(:4000)·WEB(:3000) 기동 후 `node apps/web/e2e/core-flow.mjs` | Playwright Chromium, dev DB |
-| CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | **GitHub 에서 아직 실행된 적 없음** (push 권한 대기) |
+| CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
 
 ## 2026-11-09 실행 결과 (이 세션에서 실제 실행)
 - API: **5 suites / 51 tests 통과** (단위 8 + E2E 43), 타입체크 통과
