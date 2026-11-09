@@ -21,6 +21,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { OpenRunModule } from './modules/open-run/open-run.module';
 import { ExamScheduleModule } from './modules/exam-schedule/exam-schedule.module';
 import { QuizModule } from './modules/quiz/quiz.module';
+import { StrategyModule } from './modules/strategy/strategy.module';
 import { PointsModule } from './modules/points/points.module';
 import { PolicyModule } from './modules/policy/policy.module';
 import { StudyModule } from './modules/study/study.module';
@@ -41,7 +42,7 @@ import { VerificationsModule } from './modules/verifications/verifications.modul
     JwtModule.registerAsync({ global: true, useFactory: () => ({ secret: process.env.JWT_ACCESS_SECRET, signOptions: { expiresIn: (process.env.JWT_ACCESS_TTL || '15m') as any } }) }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: limit(120) }]),
     PrismaModule, AuditModule, PolicyModule, PointsModule, EntitlementModule, AuthModule, UsersModule,
-    CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule,
+    CertificationsModule, ChallengesModule, StudyModule, PaymentsModule, VerificationsModule, AdminModule, OpenRunModule, ExamScheduleModule, QuizModule, StrategyModule,
   ],
   controllers: [HealthController],
   providers: [

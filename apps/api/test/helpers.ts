@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { PrismaClient, UserRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -8,8 +8,9 @@ import { DEFAULT_POLICY, DEFAULT_POLICY_VERSION } from '../src/modules/policy/po
 
 export const prisma = new PrismaClient();
 
-export async function createApp(): Promise<INestApplication> {
-  const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+export async function createApp(override?: (b: TestingModuleBuilder) => TestingModuleBuilder): Promise<INestApplication> {
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  const mod = await (override ? override(builder) : builder).compile();
   const app = configureApp(mod.createNestApplication({ logger: false }));
   await app.init();
   return app;

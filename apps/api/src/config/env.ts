@@ -31,7 +31,7 @@ export class Env {
 
   @IsOptional() @IsString() QNET_SERVICE_KEY?: string;
   @IsOptional() @IsString() ANTHROPIC_API_KEY?: string;
-  @IsString() AI_MODEL = 'claude-sonnet-5-5';
+  @IsString() AI_MODEL = 'claude-opus-5-5';
   @Transform(({ value }) => Number(value)) @IsInt() AI_DAILY_LIMIT_FREE = 3;
   @Transform(({ value }) => Number(value)) @IsInt() AI_DAILY_LIMIT_PREMIUM = 30;
 }
