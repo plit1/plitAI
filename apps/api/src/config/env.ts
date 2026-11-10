@@ -6,6 +6,8 @@ export class Env {
   @IsIn(['development', 'test', 'staging', 'production']) NODE_ENV = 'development';
   @Transform(({ value }) => Number(value)) @IsInt() PORT = 4000;
   @IsString() APP_ORIGIN = 'http://localhost:3000';
+  /** 앞단 프록시 수 (ALB=1, CloudFront→Caddy=2) */
+  @Transform(({ value }) => Number(value)) @IsInt() TRUST_PROXY_HOPS = 1;
   @IsString() DATABASE_URL: string;
   @IsString() @MinLength(32) JWT_ACCESS_SECRET: string;
   @IsString() JWT_ACCESS_TTL = '15m';

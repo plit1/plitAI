@@ -48,6 +48,7 @@ model User {
   mfaSecret     String? // TOTP 시크릿 (AES-256-GCM 암호문)
   mfaEnabledAt  DateTime? // null 이면 미활성 (등록 중)
   mfaLastStep   Int? // 마지막으로 사용된 TOTP 시간 단계 (재사용 방지)
+  passwordChangeRequired Boolean @default(false) // 임시 비밀번호(최초 관리자 등) — 변경 전에는 계정 설정 외 이용 불가
   isTest        Boolean    @default(false)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt

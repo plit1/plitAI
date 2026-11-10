@@ -1,0 +1,22 @@
+# PLIT 스테이징 서버 앞단 라우터 (EC2 안, 80번 포트)
+#  - 보안그룹이 CloudFront 에서 오는 연결만 허용하고, 여기서 CloudFront 가 붙여 보내는 비밀 헤더를 한 번 더 확인
+#  - /api, /socket.io → API 컨테이너 / 나머지 → 웹(Next.js) 컨테이너 (같은 도메인 → 로그인 쿠키·실시간 연결 그대로 동작)
+{
+	admin off
+	servers {
+		# CloudFront 가 넣은 X-Forwarded-For(실제 접속자 IP)를 그대로 넘김 — 80번 포트는 CloudFront 만 접근 가능
+		trusted_proxies static 0.0.0.0/0 ::/0
+	}
+}
+
+:80 {
+	@noverify not header X-Origin-Verify {$ORIGIN_VERIFY_SECRET}
+	respond @noverify "Forbidden" 403
+
+	header -Server
+
+	@api path /api/* /socket.io/*
+	reverse_proxy @api api:4000
+
+	reverse_proxy web:3000
+}

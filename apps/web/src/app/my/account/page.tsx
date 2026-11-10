@@ -36,7 +36,7 @@ function Account() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <h1 className="text-2xl font-black">계정 설정</h1>
+      <div className="flex items-end justify-between"><h1 className="text-2xl font-black">계정 설정</h1><a href="/my/password" className="text-sm font-semibold text-cobalt">비밀번호 변경</a></div>
       {msg && <p role="status" className="rounded-xl bg-clear-tint p-3 text-sm text-clear-deep">{msg}</p>}
       {err && <ErrorBox message={err} />}
 

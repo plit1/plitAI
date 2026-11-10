@@ -60,6 +60,25 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * 로그인 상태에서 비밀번호 변경. 임시 비밀번호(passwordChangeRequired) 해제.
+   * 모든 기기의 로그인(refresh 토큰)을 끊어 다시 로그인하게 한다. 관리자 계정은 감사 로그.
+   */
+  async changePassword(userId: string, current: string, next: string, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) throw new AppError('NO_PASSWORD', '소셜 로그인 계정은 비밀번호를 바꿀 수 없어요.');
+    if (!(await bcrypt.compare(current, user.passwordHash))) throw new AppError('WRONG_PASSWORD', '현재 비밀번호가 맞지 않아요.', HttpStatus.UNAUTHORIZED);
+    if (current === next) throw new AppError('SAME_PASSWORD', '새 비밀번호는 지금과 달라야 해요.');
+    if (user.email && next.toLowerCase().includes(user.email.split('@')[0].toLowerCase())) throw new AppError('WEAK_PASSWORD', '이메일 아이디가 들어간 비밀번호는 사용할 수 없어요.');
+    const passwordHash = await bcrypt.hash(next, BCRYPT_ROUNDS);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { passwordHash, passwordChangeRequired: false } });
+      await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      if (user.role !== 'USER') await tx.adminAuditLog.create({ data: { actorId: userId, action: 'PASSWORD_CHANGE', targetType: 'User', targetId: userId, after: { forced: user.passwordChangeRequired }, ip } });
+    });
+    return { changed: true, reloginRequired: true };
+  }
+
   async validateLogin(emailRaw: string, password: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { email: emailRaw.trim().toLowerCase() } });
     const ok = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);

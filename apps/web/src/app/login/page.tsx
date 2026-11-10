@@ -34,6 +34,7 @@ function LoginForm() {
   return (
     <form onSubmit={submit} className="card mx-auto max-w-md space-y-4 p-6">
       <h1 className="text-2xl font-black">로그인</h1>
+      {sp.get('changed') && <p role="status" className="rounded-xl bg-clear-tint p-3 text-sm text-clear-deep">비밀번호를 바꿨어요. 새 비밀번호로 다시 로그인해주세요.</p>}
       {mfaToken ? (
         <div>
           <label htmlFor="otp" className="label">인증 앱의 6자리 코드</label>

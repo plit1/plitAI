@@ -7,11 +7,12 @@ WORKDIR /repo
 FROM base AS build
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
+COPY apps/api/prisma apps/api/prisma
 RUN pnpm install --frozen-lockfile --filter @plit/api...
 COPY apps/api apps/api
 RUN pnpm --filter @plit/api exec prisma generate && pnpm --filter @plit/api build
-RUN pnpm deploy --filter @plit/api --prod --legacy /out && cp -r apps/api/dist apps/api/prisma /out/ \
- && cd /out && npx prisma@6 generate --schema prisma/schema.prisma
+RUN pnpm deploy --filter @plit/api --prod --legacy --ignore-scripts /out && cp -r apps/api/dist apps/api/prisma /out/ \
+  && cd /out && node node_modules/prisma/build/index.js generate --schema prisma/schema.prisma
 
 FROM node:22-bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates tini && rm -rf /var/lib/apt/lists/*

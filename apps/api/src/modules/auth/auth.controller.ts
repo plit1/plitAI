@@ -4,10 +4,10 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ConsentType } from '@prisma/client';
 import type { Request, Response } from 'express';
-import { AuthUser, CurrentUser, Public } from '../../common/auth.decorators';
+import { AllowPendingPassword, AuthUser, CurrentUser, Public } from '../../common/auth.decorators';
 import { AppError } from '../../common/errors';
 import { limit } from '../../common/throttle';
-import { LoginDto, MfaCodeDto, MfaLoginDto, PasswordResetConfirmDto, PasswordResetRequestDto, SignupDto } from './auth.dto';
+import { ChangePasswordDto, LoginDto, MfaCodeDto, MfaLoginDto, PasswordResetConfirmDto, PasswordResetRequestDto, SignupDto } from './auth.dto';
 import { MfaService } from './mfa.service';
 import { AuthService } from './auth.service';
 import { OAuthService } from './oauth.service';
@@ -24,10 +24,10 @@ export class AuthController {
 
   private respond(res: Response, t: IssuedTokens, user: { id: string; nickname: string; role: string }) {
     res.cookie(REFRESH_COOKIE, t.refreshToken, {
-      httpOnly: true, secure: this.config.get('NODE_ENV') === 'production', sameSite: 'strict',
+      httpOnly: true, secure: ['production', 'staging'].includes(this.config.get('NODE_ENV') ?? ''), sameSite: 'strict',
       path: '/api/v1/auth', expires: t.refreshExpiresAt,
     });
-    return { accessToken: t.accessToken, user: { id: user.id, nickname: user.nickname, role: user.role } };
+    return { accessToken: t.accessToken, user: { id: user.id, nickname: user.nickname, role: user.role, passwordChangeRequired: !!(user as { passwordChangeRequired?: boolean }).passwordChangeRequired } };
   }
 
   @Public() @Throttle({ default: { limit: limit(5), ttl: 60_000 } })
@@ -68,8 +68,17 @@ export class AuthController {
     if (!raw) throw new AppError('INVALID_REFRESH', '다시 로그인해주세요.', 401);
     const t = await this.tokens.rotate(raw, this.meta(req));
     const payload = JSON.parse(Buffer.from(t.accessToken.split('.')[1], 'base64url').toString());
-    res.cookie(REFRESH_COOKIE, t.refreshToken, { httpOnly: true, secure: this.config.get('NODE_ENV') === 'production', sameSite: 'strict', path: '/api/v1/auth', expires: t.refreshExpiresAt });
+    res.cookie(REFRESH_COOKIE, t.refreshToken, { httpOnly: true, secure: ['production', 'staging'].includes(this.config.get('NODE_ENV') ?? ''), sameSite: 'strict', path: '/api/v1/auth', expires: t.refreshExpiresAt });
     return { accessToken: t.accessToken, userId: payload.sub };
+  }
+
+  /** 비밀번호 변경 (임시 비밀번호 상태에서도 허용) → 모든 세션 종료, 다시 로그인 */
+  @AllowPendingPassword() @Throttle({ default: { limit: limit(5), ttl: 60_000 } }) @HttpCode(200)
+  @Post('password/change')
+  async changePassword(@CurrentUser() u: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const r = await this.auth.changePassword(u.id, dto.currentPassword, dto.newPassword, req.ip);
+    res.clearCookie(REFRESH_COOKIE, { path: '/api/v1/auth' });
+    return r;
   }
 
   @Public() @HttpCode(204)

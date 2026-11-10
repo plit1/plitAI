@@ -12,7 +12,13 @@ export const hasToken = () => !!accessToken;
 /** socket.io 핸드셰이크용 (메모리 보관 토큰) */
 export const currentToken = () => accessToken;
 /** 실시간 서버 주소: Next 리라이트는 WebSocket 업그레이드를 보장하지 않아 API 오리진에 직접 연결 */
-export const wsOrigin = () => process.env.NEXT_PUBLIC_WS_ORIGIN || (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : '');
+/** 실시간(socket.io) 서버 주소. 배포 환경은 같은 도메인(/socket.io → API), 로컬 개발만 :4000 직접 연결 */
+export const wsOrigin = () => {
+  if (process.env.NEXT_PUBLIC_WS_ORIGIN) return process.env.NEXT_PUBLIC_WS_ORIGIN;
+  if (typeof window === 'undefined') return '';
+  const local = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  return local ? `${window.location.protocol}//${window.location.hostname}:4000` : window.location.origin;
+};
 
 export async function refresh(): Promise<boolean> {
   refreshing ??= fetch('/api/v1/auth/refresh', { method: 'POST', credentials: 'same-origin' })

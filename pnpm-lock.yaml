@@ -70,6 +70,9 @@ importers:
       pino-http:
         specifier: ^11.0.0
         version: 11.0.0
+      prisma:
+        specifier: ^6.19.3
+        version: 6.19.3(typescript@5.7.3)
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -119,9 +122,6 @@ importers:
       pino-pretty:
         specifier: ^13.2.0
         version: 13.2.0
-      prisma:
-        specifier: ^6.19.3
-        version: 6.19.3(typescript@5.7.3)
       socket.io-client:
         specifier: ^4.8.4
         version: 4.8.4

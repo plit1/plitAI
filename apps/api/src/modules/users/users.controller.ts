@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestj
 import { ConsentType } from '@prisma/client';
 import { IsBoolean, IsEnum, IsOptional, IsString, Length } from 'class-validator';
 import type { Response } from 'express';
-import { AuthUser, CurrentUser } from '../../common/auth.decorators';
+import { AllowPendingPassword, AuthUser, CurrentUser } from '../../common/auth.decorators';
 import { AppError, NotFound } from '../../common/errors';
 import { PrismaService } from '../../common/prisma.service';
 import { CONSENT_VERSION, REQUIRED_CONSENTS } from '../auth/auth.service';
@@ -20,19 +20,19 @@ class WithdrawDto { @ApiProperty({ description: '"탈퇴합니다" 입력' }) @I
 export class UsersController {
   constructor(private readonly prisma: PrismaService, private readonly tokens: TokenService) {}
 
-  @Get()
+  @AllowPendingPassword() @Get()
   async me(@CurrentUser() u: AuthUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: u.id },
-      select: { id: true, email: true, nickname: true, role: true, referralCode: true, createdAt: true, identities: { select: { provider: true } }, pointAccount: { select: { balance: true } } },
+      select: { id: true, email: true, nickname: true, role: true, referralCode: true, createdAt: true, passwordChangeRequired: true, mfaEnabledAt: true, identities: { select: { provider: true } }, pointAccount: { select: { balance: true } } },
     });
     if (!user) throw NotFound('회원');
     const [enrollments, activePasses] = await Promise.all([
       this.prisma.enrollment.count({ where: { userId: u.id, status: 'ACTIVE' } }),
       this.prisma.boosterPass.count({ where: { userId: u.id, status: 'ACTIVE', expiresAt: { gt: new Date() } } }),
     ]);
-    const { pointAccount, identities, ...rest } = user;
-    return { ...rest, providers: identities.map((i) => i.provider), points: pointAccount?.balance ?? 0, activeEnrollments: enrollments, activePasses };
+    const { pointAccount, identities, mfaEnabledAt, ...rest } = user;
+    return { ...rest, mfaEnabled: !!mfaEnabledAt, providers: identities.map((i) => i.provider), points: pointAccount?.balance ?? 0, activeEnrollments: enrollments, activePasses };
   }
 
   @Patch()

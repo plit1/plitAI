@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import { Forbidden } from './errors';
-import { AuthUser, IS_PUBLIC, ROLES } from './auth.decorators';
+import { ALLOW_PENDING_PASSWORD, AuthUser, IS_PUBLIC, ROLES } from './auth.decorators';
 import { PrismaService } from './prisma.service';
 
 const RANK: Record<UserRole, number> = { USER: 0, OPERATOR: 1, SUPER_ADMIN: 2 };
@@ -26,13 +26,17 @@ export class AuthGuard implements CanActivate {
       const payload = verified && verified.typ === 'access' && typeof verified.sub === 'string' ? (verified as { sub: string; mfa?: boolean }) : null;
       if (!payload && !isPublic) throw new UnauthorizedException();
       if (payload) {
-        const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, role: true, status: true } });
-        if (user?.status === 'ACTIVE') req.user = { id: user.id, role: user.role, mfa: payload.mfa === true } satisfies AuthUser;
+        const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, select: { id: true, role: true, status: true, passwordChangeRequired: true } });
+        if (user?.status === 'ACTIVE') { req.user = { id: user.id, role: user.role, mfa: payload.mfa === true } satisfies AuthUser; req.passwordChangeRequired = user.passwordChangeRequired; }
         else if (user?.status === 'SUSPENDED' && !isPublic) throw Forbidden('ACCOUNT_SUSPENDED', '이용이 제한된 계정이에요.');
       }
     }
     if (isPublic) return true;
     if (!req.user) throw new UnauthorizedException();
+    // 임시 비밀번호 계정: 비밀번호를 바꾸기 전에는 허용된 계정 설정 API 외 차단
+    if (req.passwordChangeRequired && !this.reflector.getAllAndOverride<boolean>(ALLOW_PENDING_PASSWORD, targets)) {
+      throw Forbidden('PASSWORD_CHANGE_REQUIRED', '임시 비밀번호로 로그인했어요. 먼저 비밀번호를 바꿔주세요.');
+    }
 
     const roles = this.reflector.getAllAndOverride<UserRole[]>(ROLES, targets);
     if (roles?.length) {

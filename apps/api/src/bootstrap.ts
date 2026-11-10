@@ -13,7 +13,8 @@ export function configureApp(app: INestApplication) {
   (app as NestExpressApplication).useBodyParser('json', { limit: '1.1mb' }); // CSV 일괄 등록(1MB) 수용
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   const http = app.getHttpAdapter().getInstance();
-  http.set('trust proxy', 1); // ALB 뒤에서 실제 IP
+  // 앞단 프록시 수 (스테이징: CloudFront → Caddy = 2). 실제 접속 IP 를 X-Forwarded-For 에서 읽는다
+  http.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 1));
   http.disable('x-powered-by');
   return app;
 }

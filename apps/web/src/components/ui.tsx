@@ -22,7 +22,7 @@ export function Header() {
         <div className="ml-auto flex items-center gap-2 text-sm">
           {!ready ? null : me ? (
             <>
-              <Bell />
+              {!me.passwordChangeRequired && <Bell />}
               <Link href="/my/points" className="rounded-full bg-clear-tint px-3 py-1 font-semibold text-clear-deep">{pts(me.points)}</Link>
               {me.role !== 'USER' && <Link href="/admin" className="font-semibold text-gold">관리자</Link>}
               <button onClick={logout} className="text-ink-mute hover:text-ink">로그아웃</button>
