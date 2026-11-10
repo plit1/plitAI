@@ -41,3 +41,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @plit/web typecheck
       - run: pnpm --filter @plit/web build
+  images:
+    # 배포용 Docker 이미지가 실제로 빌드되는지 확인 (푸시 없음). arm64 빌드는 배포 워크플로에서 수행
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { app: [api, web] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          cache-from: type=gha,scope=ci-${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=ci-${{ matrix.app }}
