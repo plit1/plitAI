@@ -1,0 +1,3 @@
+# 실제 값은 GitHub 환경 변수로 전달 (이 파일은 예시). 이메일 등은 저장소에 커밋하지 않는다.
+alarm_email              = "ops@example.com"
+github_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"

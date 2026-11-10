@@ -1,0 +1,13 @@
+#!/bin/bash
+# EC2 첫 부팅 설정 (1회). 앱 배포는 GitHub Actions → SSM 으로 /opt/plit/deploy.sh 실행.
+set -euxo pipefail
+dnf -y install docker jq
+systemctl enable --now docker
+# 메모리 여유 (2GiB 서버에 웹·API 동시 실행) — 2GiB 스왑
+if [ ! -f /swapfile ]; then fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab; fi
+# 보안 업데이트 자동 적용
+dnf -y install dnf-automatic
+sed -i 's/^upgrade_type.*/upgrade_type = security/; s/^apply_updates.*/apply_updates = yes/' /etc/dnf/automatic.conf
+systemctl enable --now dnf-automatic.timer
+install -d -m 700 /opt/plit
+echo "${env}" > /opt/plit/environment

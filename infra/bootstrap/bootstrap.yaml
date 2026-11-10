@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  PLIT 1회성 준비 (AWS 콘솔 CloudFormation 에서 실행). Terraform 상태 저장 버킷 + GitHub Actions 비밀번호 없는 로그인(OIDC)
+  + 역할 2개(계획 조회 전용 / 승인 후 적용). 이 스택 자체의 월 비용은 사실상 0원(상태 파일 몇 KB).
+
+Parameters:
+  GitHubRepo:
+    Type: String
+    Default: plit1/plitAI
+    Description: GitHub 저장소 (소유자/이름)
+  CreateOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: 이 AWS 계정에 GitHub OIDC 공급자가 이미 있으면 false
+
+Conditions:
+  MakeOidc: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  StateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub plit-terraform-state-${AWS::AccountId}
+      VersioningConfiguration: { Status: Enabled }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      LifecycleConfiguration:
+        Rules:
+          - Id: old-state-versions
+            Status: Enabled
+            NoncurrentVersionExpiration: { NoncurrentDays: 90 }
+
+  StateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StateBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt StateBucket.Arn, !Sub "${StateBucket.Arn}/*"]
+            Condition: { Bool: { aws:SecureTransport: "false" } }
+
+  GitHubOidc:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeOidc
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList: [6938fd4d98bab03faadb97b34396831e3780aea1, 1c58a3a8518e8759bf075b76b750d4f2df264fcd]
+
+  # 계획(plan) 조회 전용: GitHub 환경 'infra-plan' 에서만. 리소스를 만들거나 바꿀 수 없음
+  PlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: plit-terraform-plan
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [MakeOidc, !Ref GitHubOidc, !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:environment:infra-plan
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/ReadOnlyAccess]
+      Policies:
+        - PolicyName: state-and-secret-read
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:ListBucket, s3:PutObject, s3:DeleteObject] # 잠금 파일(.tflock) 생성·삭제
+                Resource: [!GetAtt StateBucket.Arn, !Sub "${StateBucket.Arn}/*"]
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue] # 현재 상태 비교용 (plit-* 시크릿만)
+                Resource: !Sub arn:aws:secretsmanager:*:${AWS::AccountId}:secret:plit-*
+
+  # 적용(apply): GitHub 환경 'infra-apply'(승인자 지정) 에서만. 승인 버튼을 눌러야 실행됨
+  ApplyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: plit-terraform-apply
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [MakeOidc, !Ref GitHubOidc, !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:environment:infra-apply
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/PowerUserAccess] # IAM 은 아래처럼 plit-* 이름만 허용
+      Policies:
+        - PolicyName: plit-iam-only
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:UpdateRole
+                  - iam:UpdateAssumeRolePolicy
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:PutRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListInstanceProfilesForRole
+                  - iam:PassRole
+                  - iam:CreateInstanceProfile
+                  - iam:DeleteInstanceProfile
+                  - iam:GetInstanceProfile
+                  - iam:AddRoleToInstanceProfile
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:TagInstanceProfile
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/plit-*
+                  - !Sub arn:aws:iam::${AWS::AccountId}:instance-profile/plit-*
+              - Effect: Allow
+                Action: [iam:CreateServiceLinkedRole]
+                Resource: "*"
+                Condition:
+                  StringLike:
+                    iam:AWSServiceName: [rds.amazonaws.com, elasticloadbalancing.amazonaws.com, ecs.amazonaws.com]
+
+Outputs:
+  StateBucketName:
+    Value: !Ref StateBucket
+    Description: Terraform 상태 버킷 (GitHub 변수 TF_STATE_BUCKET)
+  OidcProviderArn:
+    Value: !If [MakeOidc, !Ref GitHubOidc, !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"]
+    Description: GitHub 변수 AWS_OIDC_PROVIDER_ARN
+  PlanRoleArn:
+    Value: !GetAtt PlanRole.Arn
+    Description: GitHub 환경 infra-plan 의 변수 AWS_ROLE_ARN
+  ApplyRoleArn:
+    Value: !GetAtt ApplyRole.Arn
+    Description: GitHub 환경 infra-apply 의 변수 AWS_ROLE_ARN
