@@ -43,5 +43,5 @@ resource "aws_db_instance" "this" {
   final_snapshot_identifier       = "${local.name}-final"
   auto_minor_version_upgrade      = true
   apply_immediately               = false
-  enabled_cloudwatch_logs_exports = []
+  enabled_cloudwatch_logs_exports = var.db_export_logs ? ["postgresql"] : []
 }

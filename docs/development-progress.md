@@ -3,9 +3,28 @@
 > 다음 세션은 이 파일 → `development-roadmap.md` → `decisions.md` 순서로 확인.
 
 ## 현재 위치
-- 브랜치: `feature/phase7-referral-mall-ads` (develop 에서 분기). Phase 6 까지 develop 에 반영됨
+- 브랜치: `feature/phase8-staging-infra` (develop 에서 분기). Phase 7 까지 develop 에 반영됨
 - GitHub `plit1/plitAI` 에 `develop`, `feature/phase0-2-foundation` push 완료, CI 통과 (API 51/51, web build). 태그 `demo-v2.9-stable` 은 프록시 오류로 push 실패 → 로컬에만 존재 (main@0bf2531 과 동일 커밋)
-- 완료 Phase: 0, 1, 2, 3, 4, 5, 6, **7**(외부 키·계약·승인 대기 항목 제외)
+- 완료 Phase: 0~7. **Phase 8 준비 완료 — AWS 적용은 사용자 승인 대기** (`docs/phase8-staging-plan.md`)
+
+## 세션 7 (2026-11-10) — Phase 8 준비 (스테이징 구축 계획)
+### 완료
+- AWS 구성 재설계: CloudFront → EC2 1대(Caddy·웹·API) → RDS(비공개), NAT·ALB 제거로 월 약 $50 (공식 요금표 기준 계산)
+- Terraform 재작성: `modules/plit-stack` + `envs/staging` + `envs/production`(설계만), 오프라인 plan staging 57 생성·0 변경·0 삭제
+- 부트스트랩 CloudFormation(상태 버킷·OIDC·plan/apply 역할), GitHub Actions: CI 재사용·스테이징 자동 배포·운영 수동+승인·infra plan/apply
+- 배포 스크립트(deploy.sh: 마이그레이션→교체→상태 확인→자동 복귀), Caddy(비밀 헤더·경로 라우팅), 웹 Docker 이미지
+- 최초 관리자 CLI + 임시 비밀번호 강제 변경 + 비밀번호 변경 화면, TRUST_PROXY_HOPS, 스테이징 Secure 쿠키, 배포 환경 같은 도메인 실시간 연결
+- 결함 수정: API Docker 이미지 빌드 실패(스키마 복사 전 postinstall), 런타임에 prisma CLI 없음, 비밀번호 변경 후 안내가 사라지는 이동 경합
+
+### 기능 상태 (세션 7 변경분)
+| 기능 | 상태 |
+|---|---|
+| 최초 관리자 CLI·강제 비밀번호 변경 | 개발 및 테스트 완료 (API e2e + 실제 이미지·브라우저 로컬 검증) |
+| 배포 스크립트·Caddy·이미지 | 개발 및 테스트 완료 (로컬 Docker 리허설 — x86. 실제 arm64 빌드는 GitHub 에서 첫 실행 시 확인) |
+| Terraform | 개발 완료 / validate·오프라인 plan 통과 — **실제 AWS plan·apply 미실행 (승인 필요)** |
+| GitHub Actions 배포·인프라 워크플로 | 개발 완료 / actionlint 통과 — **실행 미검증 (AWS·GitHub 설정 필요)** |
+| 부트스트랩 CloudFormation | 개발 완료 / cfn-lint 통과 — 미실행 |
+| 스테이징 도메인 연결 | 승인 필요 (DNS 변경 금지) |
 
 ## 세션 6 (2026-11-09) — Phase 6 승인 반영 + Phase 7
 ### 사용자 승인·결정
@@ -159,8 +178,8 @@
 | CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. `feature/phase7-referral-mall-ads` → `develop` 반영 (CI 확인 후)
-2. Phase 8 (승인 필요): AWS 스테이징 `terraform plan` → 비용 검토 → 승인 후 apply, 웹 호스팅 결정, CD 파이프라인, 첫 관리자 계정 생성 절차, 시드 일회성 태스크
-3. 외부 키 도착 시: 토스 테스트 키 실결제, S3, 고용24·K-Startup, 쿠폰 공급사, SES
-4. 결정 필요: 포인트 유효기간, 증빙 보관 기간, 부가세 반올림, 환불 범위, 실보상(REWARDS_LIVE) 법률 검토, 광고 연락처 수집·제3자 제공
-5. 정리: E2E 가 만든 `plit_e2e_*` DB (자동 삭제 안 함)
+1. 사용자 승인 대기: 구성안(A/B), 부트스트랩 실행, 실제 plan 확인 후 스테이징 apply, 도메인 연결 여부
+2. 승인 후: Infra plan → apply → staging 환경 변수 → Deploy staging(seed) → 최초 관리자 → 스모크 테스트(E2E 를 스테이징 주소로)
+3. 외부 키: 토스 테스트 키, Claude 키, SES, 소셜 로그인 리디렉트
+4. Phase 9: 통합 검증·성능·보안 점검·운영 계정 준비
+5. 정리: E2E 가 만든 `plit_e2e_*` DB

@@ -40,6 +40,11 @@ variable "db_allocated_storage_gb" {
   type    = number
   default = 20
 }
+variable "db_export_logs" {
+  type        = bool
+  default     = false
+  description = "PostgreSQL 로그를 CloudWatch 로 내보내기 (운영 true, 로그량만큼 과금)"
+}
 variable "db_backup_retention_days" {
   type    = number
   default = 7

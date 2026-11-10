@@ -1,0 +1,54 @@
+# 정식 운영 배포 — 자동 실행 없음. 사람이 직접 실행하고, GitHub 환경 'production' 의 승인자가 승인해야 진행된다.
+# 운영 인프라가 준비되기 전(저장소 변수 PRODUCTION_DEPLOY_ENABLED != 'true')에는 실행해도 중단된다.
+name: Deploy production
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "배포할 태그 또는 커밋 (스테이징에서 검증된 것)"
+        required: true
+permissions:
+  contents: read
+concurrency: { group: deploy-production, cancel-in-progress: false }
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ vars.PRODUCTION_DEPLOY_ENABLED }}" != "true" ]; then echo "운영 환경이 아직 준비되지 않았습니다 (PRODUCTION_DEPLOY_ENABLED)."; exit 1; fi
+
+  test:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+
+  build-and-deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production # ← GitHub 설정에서 '승인자(Required reviewers)' 지정 필수
+      url: ${{ vars.APP_URL }}
+    permissions: { contents: read, id-token: write }
+    strategy:
+      max-parallel: 1
+      matrix: { app: [api, web] }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ inputs.ref }}" }
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: "${{ vars.AWS_DEPLOY_ROLE_ARN }}", aws-region: ap-northeast-2 }
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ matrix.app == 'api' && vars.ECR_API || vars.ECR_WEB }}:${{ steps.sha.outputs.sha }}
+      - name: 서버 배포 (web 이미지까지 올린 뒤 1회)
+        if: matrix.app == 'web'
+        run: deploy/scripts/ssm-deploy.sh "${{ vars.INSTANCE_ID }}" "${{ steps.sha.outputs.sha }}"

@@ -68,3 +68,7 @@ User 1─* AdminAuditLog (actor) · PolicyVersion(isCurrent) · AiUsageLog
 - 정책값 추가: `referralMonthlyCount`(20), `referralMonthlyPoints`(20000), `mallDailyOrders`(5)
 - 시드: 포인트몰 예시 상품 10, 예시 광고 3 (데모 콘텐츠 범위)
 - 마이그레이션 `20261109152217_phase7_referral_mall_ads_notifications` (테이블 추가만)
+
+## Phase 8 추가
+- `User.passwordChangeRequired` (기본 false) — CLI 로 만든 최초 관리자 등 임시 비밀번호 계정
+- 마이그레이션 `20261110001158_user_password_change_required` (컬럼 추가만)

@@ -52,6 +52,7 @@ module "plit" {
   db_multi_az              = true # DB 장애 시 다른 가용영역으로 자동 전환
   db_allocated_storage_gb  = 50
   db_backup_retention_days = 14
+  db_export_logs           = true
   enable_waf               = true
   log_retention_days       = 90
   monthly_budget_usd       = 250

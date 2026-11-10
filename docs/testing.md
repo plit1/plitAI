@@ -8,6 +8,15 @@
 | 브라우저 E2E | `apps/web/e2e/run.sh [core-flow phase3-flow phase4-flow phase5-flow phase6-flow phase7-flow]` | 흐름마다 새 DB `plit_e2e_*` 생성, API 는 NODE_ENV=staging(관리자 MFA 강제) |
 | CI | `.github/workflows/ci.yml` (postgres 서비스 컨테이너) | GitHub Actions 통과 (첫 실행에서 Prisma generate 누락 발견·수정) |
 
+## 세션 7 실행 결과 (Phase 8 준비)
+- API: 관리자 부트스트랩 e2e 3 (인자·임시 비밀번호 규칙, 생성→강제 변경→세션 종료→재로그인, 중복 거부) 통과
+- Docker: API·웹 이미지 빌드 성공 (이 세션은 Debian 미러 차단 → 로컬 전용 대체 베이스로 apt 단계만 대체. 실제 빌드는 GitHub Actions)
+- 로컬 배포 리허설 (실제 이미지 + Postgres + Caddy, deploy.sh): 마이그레이션 21개 적용 → 스테이징 시드(데모 O·개발 계정 X, 회원 0) → 비밀 헤더 없음/틀림 403 → 웹·API·socket.io 경로 → 실제 접속 IP(X-Forwarded-For 2단) 기록 → Secure·HttpOnly·SameSite=Strict 쿠키 → 깨진 이미지 배포 시 직전 버전 자동 복귀 → 도커 재시작 후 자동 기동 **통과**
+- 브라우저: 임시 비밀번호 로그인 → 강제 이동 → 다른 화면 차단 → 변경 → 재로그인 안내 **통과**, 관리자 API 는 MFA 전 403
+- Terraform 1.16.7 / aws 6.72.0: fmt·validate 통과, 오프라인 plan staging 57 생성(0 변경·0 삭제), production 58
+- 정적 점검: Checkov 155 통과·33 지적(대부분 오탐·비용 절충, 2건 반영), cfn-lint·actionlint·shellcheck 통과
+- 미검증: 실제 AWS plan/apply, GitHub Actions 배포 실행, arm64 이미지
+
 ## 세션 6 실행 결과 (Phase 7)
 - API: **40 suites / 242 tests 통과** (세션 5 대비 +28) — 시드 범위 3, 초대 규칙 5·e2e 6(랜딩·귀속·승인·중복 의심 해제·자동 거절·월 한도·정지 계정·알림센터), 포인트몰 e2e 5(부족·멱등·동시 5건→1건·하루 한도·재고 동시성·발급 실패 역분개·관리자 취소·대기 복구), 광고 규칙 4·e2e 5(피드 순서·이벤트 중복 제거·신청·중복 승인 불가·단가 스냅샷·승인 취소·심사·연락처 수집 차단·암호화·마스킹)
 - 스테이징 시드: 빈 DB 에 `NODE_ENV=staging node dist/seed/seed.js` → 자격증 50·공고 24·지원사업 13, 회원 0 확인

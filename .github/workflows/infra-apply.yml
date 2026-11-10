@@ -1,0 +1,40 @@
+# Terraform 적용(apply) — 과금 리소스를 만들거나 바꾼다.
+# 사람이 직접 실행 + GitHub 환경 'infra-apply' 승인자 승인 후에만 진행. 같은 실행 안에서 plan 결과를 보여주고 그대로 적용한다.
+name: Infra apply
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "환경 (운영은 별도 승인 단계에서만)"
+        type: choice
+        options: [staging]
+        default: staging
+      confirm:
+        description: "적용하려면 APPLY 입력"
+        required: true
+permissions:
+  contents: read
+concurrency: { group: "infra-${{ inputs.env }}", cancel-in-progress: false }
+jobs:
+  apply:
+    if: inputs.confirm == 'APPLY'
+    runs-on: ubuntu-latest
+    environment: infra-apply # ← GitHub 설정에서 승인자 지정 필수
+    permissions: { contents: read, id-token: write }
+    defaults:
+      run: { working-directory: "infra/terraform/envs/${{ inputs.env }}" }
+    env:
+      TF_VAR_alarm_email: ${{ vars.ALARM_EMAIL }}
+      TF_VAR_github_oidc_provider_arn: ${{ vars.AWS_OIDC_PROVIDER_ARN }}
+      TF_VAR_custom_domain: ${{ vars.CUSTOM_DOMAIN }}
+      TF_VAR_custom_domain_ready: ${{ vars.CUSTOM_DOMAIN_READY || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: "${{ vars.AWS_ROLE_ARN }}", aws-region: ap-northeast-2 }
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.16.7, terraform_wrapper: false }
+      - run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform plan -input=false -no-color -lock-timeout=60s -out=plan.out
+      - run: terraform apply -input=false -no-color plan.out
+      - run: terraform output -no-color | grep -v -i secret >> "$GITHUB_STEP_SUMMARY"

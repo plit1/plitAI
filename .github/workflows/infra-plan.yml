@@ -1,0 +1,39 @@
+# Terraform 계획(plan)만 확인 — 리소스를 만들거나 바꾸지 않는다 (조회 전용 역할).
+name: Infra plan
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "환경"
+        type: choice
+        options: [staging, production]
+        default: staging
+  pull_request:
+    paths: ["infra/terraform/**"]
+permissions:
+  contents: read
+jobs:
+  plan:
+    if: vars.TF_STATE_BUCKET != ''
+    runs-on: ubuntu-latest
+    environment: infra-plan
+    permissions: { contents: read, id-token: write }
+    defaults:
+      run: { working-directory: "infra/terraform/envs/${{ inputs.env || 'staging' }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: "${{ vars.AWS_ROLE_ARN }}", aws-region: ap-northeast-2 }
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.16.7, terraform_wrapper: false }
+      - run: terraform init -input=false -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+      - run: terraform validate
+      - name: plan
+        env:
+          TF_VAR_alarm_email: ${{ vars.ALARM_EMAIL }}
+          TF_VAR_github_oidc_provider_arn: ${{ vars.AWS_OIDC_PROVIDER_ARN }}
+          TF_VAR_custom_domain: ${{ vars.CUSTOM_DOMAIN }}
+          TF_VAR_custom_domain_ready: ${{ vars.CUSTOM_DOMAIN_READY || 'false' }}
+        run: |
+          terraform plan -input=false -no-color -lock-timeout=60s -out=plan.out | tee plan.txt
+          { echo '### Terraform plan'; echo '```'; grep -E '^(Plan:|No changes)' plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

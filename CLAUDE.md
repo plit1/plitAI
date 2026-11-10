@@ -9,7 +9,9 @@
 - `index.html` — **데모 v2.9 원본 번들 (수정·삭제 금지)**. 시각 기준 자료. 태그 `demo-v2.9-stable`.
 - `apps/api` — NestJS 11 + Prisma 6 + PostgreSQL 16 (모듈형 모놀리스)
 - `apps/web` — Next.js 15 App Router + Tailwind (데모 디자인 토큰)
-- `infra/terraform/staging` — AWS 서울 스테이징 IaC (apply 는 승인 필요)
+- `infra/terraform` — AWS IaC: `modules/plit-stack` + `envs/staging`(최소 구성) + `envs/production`(설계만). apply 는 승인 필요
+- `infra/bootstrap/bootstrap.yaml` — 1회성 준비(상태 버킷·GitHub OIDC·plan/apply 역할), `deploy/` — 서버 배포 스크립트·Caddy
+- 배포 계획·승인 현황: `docs/phase8-staging-plan.md`
 - `docs/` — 요구사항·설계·진행 기록
 
 ## 브랜치
@@ -23,6 +25,7 @@ cd apps/web && pnpm dev             # http://localhost:3000 (/api 는 :4000 으�
 ```
 테스트: `cd apps/api && pnpm test` (plit_test DB 필요, 이름에 test 없으면 실행 거부) /
 브라우저 E2E: `apps/web/e2e/run.sh` (흐름마다 새 DB 생성 — DB 리셋 금지)
+최초 관리자: 서버에서 `sudo /opt/plit/create-admin.sh 이메일` (로컬: `node dist/cli/create-admin.js --email ...`). 관리자 이메일·비밀번호를 코드에 넣지 않는다.
 
 ## 절대 규칙
 - 금액·포인트는 정수. 결제 금액은 **서버 정책값**으로만 계산, 클라이언트 값은 비교용.

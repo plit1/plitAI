@@ -47,3 +47,10 @@
 | D-043 | 광고 연락처 수집(광고주 제3자 제공)은 AD_CONTACT_COLLECTION 승인 전 차단, 광고주 전달 기능은 승인 전 만들지 않음. 예시 광고는 연락처를 받지 않음 | 외부 서비스로 실제 개인정보 전송은 사전 승인 대상 | 확정 |
 | D-044 | 광고 매출은 별도 원장(AdRevenueEntry, CREDIT/REVERSAL append-only), 단가는 승인 시점 스냅샷 | 포인트 원장과 분리, 소급 방지 | 확정 |
 | D-045 | 알림은 인앱만(dedupeKey 1회). 이메일·푸시는 SES·푸시 키 확보 후 | 외부 발송 계정 대기 | 확정 |
+| D-046 | 스테이징은 EC2 1대(웹·API 컨테이너 + Caddy) + RDS + CloudFront. NAT·ALB·Fargate 미사용 | 월 $50 (기존 초안 $118 대비 57% 절감), 보안 기능 유지 | 제안 (승인 대기) |
+| D-047 | 서버 인바운드는 CloudFront 원본용 관리형 IP 목록 + 비밀 헤더(X-Origin-Verify) 둘 다 필요, SSH 없음(SSM) | NAT 없이 공개 서브넷 서버를 안전하게 노출 | 제안 |
+| D-048 | 웹·API 같은 도메인(경로 라우팅) — 쿠키 SameSite=Strict·socket.io 유지, 스테이징도 Secure 쿠키, TRUST_PROXY_HOPS=2 | 기존 인증 설계 유지 | 확정 |
+| D-049 | GitHub Actions 는 OIDC(저장 키 없음), 역할은 GitHub 환경 단위(staging/production/infra-plan/infra-apply)로 제한. 운영 배포·인프라 적용은 수동 + 승인자 | 무승인 운영 배포 방지 | 확정 |
+| D-050 | 최초 관리자는 서버 CLI(이메일 입력, 무작위 임시 비밀번호 1회 표시), 첫 로그인 시 비밀번호 변경 강제(서버 403), 관리자 기능은 MFA 필수. 최고관리자 존재 시 CLI 거부 | 자격증명을 코드·변수에 두지 않음 | 확정 |
+| D-051 | Terraform 상태는 S3(버전·암호화, S3 잠금), 스테이징·운영 상태·폴더 분리. DNS 는 Terraform 이 변경하지 않음 | 데모 도메인 보호 | 확정 |
+| D-052 | 이미지 태그는 커밋 해시(덮어쓰기 금지), 배포 실패 시 직전 태그 자동 복귀 | 재현성·안전 | 확정 |

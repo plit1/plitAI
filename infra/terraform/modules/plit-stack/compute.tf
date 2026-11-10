@@ -3,6 +3,7 @@ resource "aws_launch_template" "app" {
   name_prefix   = "${local.name}-app-"
   image_id      = "resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64" # 최신 공식 이미지 (교체 시에만 반영)
   instance_type = var.instance_type
+  ebs_optimized = true
   user_data     = base64encode(templatefile("${path.module}/user_data.sh.tftpl", { env = var.env }))
 
   iam_instance_profile { name = aws_iam_instance_profile.app.name }

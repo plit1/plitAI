@@ -172,3 +172,11 @@
 | PATCH | /admin/ads/campaigns/:id/price `{cpaPrice}` | SUPER_ADMIN | 이후 승인분부터 |
 | GET | /admin/ads/leads?campaignId&status | OPERATOR | 연락처는 마스킹만 |
 | POST | /admin/ads/leads/:id/decide `{action APPROVE/REJECT/REVERSE, note?}` | OPERATOR | 중복 승인 409 DUPLICATE_LEAD |
+
+## Phase 8 추가 (세션 7)
+| 메서드 | 경로 | 권한 | 설명 |
+|---|---|---|---|
+| POST | /auth/password/change `{currentPassword, newPassword}` | 회원 (임시 비밀번호 상태 허용) | 401 WRONG_PASSWORD / 400 SAME_PASSWORD·WEAK_PASSWORD, 성공 시 모든 세션 종료 |
+| GET | /me | 회원 (임시 비밀번호 상태 허용) | `passwordChangeRequired`, `mfaEnabled` 추가 |
+| (전체) | 그 외 API | — | 임시 비밀번호 계정은 403 PASSWORD_CHANGE_REQUIRED |
+| POST | /auth/login · /auth/login/mfa | 공개 | 응답 user 에 `passwordChangeRequired` |
