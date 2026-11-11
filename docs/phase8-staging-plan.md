@@ -278,7 +278,12 @@ develop 에 push
 
 ---
 
-## 승인 요청
+## 승인 현황 (2026-11-11)
+
+- ✅ 구성안 **A(최소)** 승인 → 부트스트랩 안내: [`infra/bootstrap-guide.md`](infra/bootstrap-guide.md)
+- ⏳ 부트스트랩 실행(사용자) → 실제 plan 확인 → apply 승인 대기
+
+## 승인 요청 (최초)
 
 다음 항목에 대해 결정·승인을 부탁드립니다.
 
