@@ -178,7 +178,8 @@
 | CI | 개발 및 테스트 완료 (GitHub Actions 통과) |
 
 ## 다음 세션 할 일 (우선순위)
-1. 구성안 A 승인됨(2026-11-11). 사용자: 부트스트랩 실행(`docs/infra/bootstrap-guide.md`) → GitHub 환경·변수 → Infra plan 결과 공유 → apply 승인
+1. 구성안 A 승인·부트스트랩 완료·실제 plan 57/0/0 확인(2026-11-11). **스테이징 apply 승인 대기**
+   - 수동 실행 버튼은 기본 브랜치(main) 워크플로에만 보임 → Infra plan 은 develop push 시 자동, apply 는 승인 후 API 로 시작(승인자 버튼으로 진행)
 2. 승인 후: Infra plan → apply → staging 환경 변수 → Deploy staging(seed) → 최초 관리자 → 스모크 테스트(E2E 를 스테이징 주소로)
 3. 외부 키: 토스 테스트 키, Claude 키, SES, 소셜 로그인 리디렉트
 4. Phase 9: 통합 검증·성능·보안 점검·운영 계정 준비

@@ -283,7 +283,10 @@ develop 에 push
 - ✅ 구성안 **A(최소)** 승인 → 부트스트랩 안내: [`infra/bootstrap-guide.md`](infra/bootstrap-guide.md)
 - ✅ 알림 이메일: 대표 이메일 (GitHub 변수 `ALARM_EMAIL` 로만 보관 — 공개 저장소라 문서·코드에 적지 않음)
 - ✅ 승인자: GitHub 계정 `plit1` (환경 `infra-apply`, `production`)
-- ⏳ 부트스트랩 실행(사용자) → 실제 plan 확인 → apply 승인 대기
+- ✅ 부트스트랩 실행(2026-11-11, CloudShell) · GitHub 변수·환경 설정
+- ✅ 실제 계정 plan (Actions Infra plan): **57 to add, 0 to change, 0 to destroy** — 서버 t4g.small, DB db.t4g.micro 단일 AZ, 삭제 보호, 예산 $80
+  - 해결한 문제: 이 저장소의 GitHub OIDC `sub` 는 고정 ID 형식(`repo:plit1@354365550/plitAI@1451163456:…`) → 역할 신뢰 조건에 두 형식 모두 허용
+- ⏳ 스테이징 apply 승인 대기
 
 ## 승인 요청 (최초)
 
