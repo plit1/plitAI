@@ -281,6 +281,8 @@ develop 에 push
 ## 승인 현황 (2026-11-11)
 
 - ✅ 구성안 **A(최소)** 승인 → 부트스트랩 안내: [`infra/bootstrap-guide.md`](infra/bootstrap-guide.md)
+- ✅ 알림 이메일: 대표 이메일 (GitHub 변수 `ALARM_EMAIL` 로만 보관 — 공개 저장소라 문서·코드에 적지 않음)
+- ✅ 승인자: GitHub 계정 `plit1` (환경 `infra-apply`, `production`)
 - ⏳ 부트스트랩 실행(사용자) → 실제 plan 확인 → apply 승인 대기
 
 ## 승인 요청 (최초)
