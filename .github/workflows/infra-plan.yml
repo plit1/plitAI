@@ -1,4 +1,5 @@
 # Terraform 계획(plan)만 확인 — 리소스를 만들거나 바꾸지 않는다 (조회 전용 역할).
+# 실행: develop 에 infra 변경이 push 될 때 자동, 또는 수동(Run workflow).
 name: Infra plan
 on:
   workflow_dispatch:
@@ -8,8 +9,10 @@ on:
         type: choice
         options: [staging, production]
         default: staging
-  pull_request:
-    paths: ["infra/terraform/**"]
+  # develop 에 인프라 코드가 반영되면 자동으로 계획만 조회 (수동 버튼은 기본 브랜치에 있는 워크플로에만 보임)
+  push:
+    branches: [develop]
+    paths: ["infra/terraform/**", ".github/workflows/infra-plan.yml"]
 permissions:
   contents: read
 jobs:
