@@ -93,6 +93,11 @@ variable "github_repo" {
   type    = string
   default = "plit1/plitAI"
 }
+variable "github_repo_immutable" {
+  type        = string
+  default     = "plit1@354365550/plitAI@1451163456"
+  description = "GitHub OIDC 토큰의 고정 ID 형식 저장소 식별값 (소유자@ID/저장소@ID)"
+}
 variable "github_oidc_provider_arn" {
   type        = string
   default     = ""

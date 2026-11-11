@@ -8,6 +8,10 @@ Parameters:
     Type: String
     Default: plit1/plitAI
     Description: GitHub 저장소 (소유자/이름)
+  GitHubRepoImmutable:
+    Type: String
+    Default: plit1@354365550/plitAI@1451163456
+    Description: GitHub 가 보내는 고정 ID 형식 저장소 식별값 (소유자@ID/저장소@ID)
   CreateOidcProvider:
     Type: String
     Default: "true"
@@ -77,7 +81,9 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:environment:infra-plan
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${GitHubRepo}:environment:infra-plan
+                  - !Sub repo:${GitHubRepoImmutable}:environment:infra-plan
       ManagedPolicyArns: [arn:aws:iam::aws:policy/ReadOnlyAccess]
       Policies:
         - PolicyName: state-and-secret-read
@@ -105,7 +111,9 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepo}:environment:infra-apply
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${GitHubRepo}:environment:infra-apply
+                  - !Sub repo:${GitHubRepoImmutable}:environment:infra-apply
       ManagedPolicyArns: [arn:aws:iam::aws:policy/PowerUserAccess] # IAM 은 아래처럼 plit-* 이름만 허용
       Policies:
         - PolicyName: plit-iam-only

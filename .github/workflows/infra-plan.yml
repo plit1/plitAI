@@ -25,11 +25,6 @@ jobs:
       run: { working-directory: "infra/terraform/envs/${{ inputs.env || 'staging' }}" }
     steps:
       - uses: actions/checkout@v4
-      - name: OIDC 식별값 확인 (토큰 자체는 출력하지 않음)
-        run: |
-          T=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
-          P=$(cut -d. -f2 <<<"$T" | tr '_-' '/+'); while [ $(( ${#P} % 4 )) -ne 0 ]; do P="$P="; done
-          base64 -d <<<"$P" | jq '{sub, aud, iss, environment, ref, repository}'
       - uses: aws-actions/configure-aws-credentials@v4
         with: { role-to-assume: "${{ vars.AWS_ROLE_ARN }}", aws-region: ap-northeast-2 }
       - uses: hashicorp/setup-terraform@v3

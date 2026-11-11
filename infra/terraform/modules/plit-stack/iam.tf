@@ -74,7 +74,7 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:environment:${var.env}"]
+      values   = ["repo:${var.github_repo}:environment:${var.env}", "repo:${var.github_repo_immutable}:environment:${var.env}"]
     }
   }
 }
